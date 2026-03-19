@@ -45,7 +45,7 @@ export async function getUSDExchangeRates(): Promise<Record<string, number>> {
 
     cachedRates = newRates;
     lastFetchTime = now;
-    console.log('✅ Exchange rates updated');
+    console.log('Exchange rates updated');
     return cachedRates;
   } catch (error: any) {
     console.error('❌ Error fetching exchange rates:', error.message);

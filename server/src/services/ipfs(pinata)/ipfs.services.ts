@@ -68,9 +68,9 @@ const uploadOnIpfsBill = async (data: Express.Multer.File) => {
     // Clean up the uploaded file from local storage
     try {
       fs.unlinkSync(data.path);
-      console.log('🗑️ Cleaned up local file');
+      console.log('Cleaned up local file');
     } catch (cleanupError) {
-      console.warn('⚠️ Failed to cleanup local file:', cleanupError);
+      console.warn('Failed to cleanup local file:', cleanupError);
     }
 
     return {
@@ -78,7 +78,7 @@ const uploadOnIpfsBill = async (data: Express.Multer.File) => {
       cid: uploadData.cid,
     };
   } catch (error: any) {
-    console.error('❌ IPFS upload error:', error.message);
+    console.error('IPFS upload error:', error.message);
     return {
       success: false,
       error: error.message || error,

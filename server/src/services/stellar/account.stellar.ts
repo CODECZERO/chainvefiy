@@ -67,7 +67,7 @@ export const createAccount = async () => {
       console.log('Transaction result:', result);
 
       if (result.successful) {
-        console.log(`✅ Successfully created Stellar account: ${newPair.publicKey()}`);
+        console.log(`Successfully created Stellar account: ${newPair.publicKey()}`);
         return {
           publicKey: newPair.publicKey(),
           secret: newPair.secret(),

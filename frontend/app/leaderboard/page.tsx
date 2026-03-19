@@ -77,7 +77,7 @@ export default function LeaderboardPage() {
             <Trophy className="w-8 h-8 text-amber-400" />
           </div>
           <h1 className="text-3xl font-bold">Top Verifiers</h1>
-          <p className="text-muted-foreground mt-2">Community members who verify products most accurately earn Trust Tokens</p>
+          <p className="text-muted-foreground mt-2">Community members who verify products accurately rise on the leaderboard</p>
         </div>
 
         {/* Stats row */}
@@ -85,7 +85,7 @@ export default function LeaderboardPage() {
           {[
             { label: "Total Verifiers", value: stats.verifiers, icon: <ShieldCheck className="w-4 h-4 text-orange-400" /> },
             { label: "Products Verified", value: stats.products, icon: <Star className="w-4 h-4 text-amber-400" /> },
-            { label: "Trust Tokens Awarded", value: stats.tokens, icon: <TrendingUp className="w-4 h-4 text-emerald-400" /> },
+            { label: "Total votes", value: stats.tokens, icon: <TrendingUp className="w-4 h-4 text-emerald-400" /> },
           ].map(s => (
             <div key={s.label} className="bg-card border border-border rounded-2xl p-4 text-center">
               <div className="flex justify-center mb-1">{s.icon}</div>
@@ -133,7 +133,7 @@ export default function LeaderboardPage() {
         </div>
 
         <p className="text-center text-muted-foreground text-sm mt-8">
-          Start verifying products to earn Trust Tokens and climb the leaderboard
+          Start verifying products to climb the leaderboard
         </p>
       </div>
     </div>

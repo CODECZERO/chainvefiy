@@ -22,7 +22,7 @@ const BOUNTIES: Bounty[] = [
   {
     id: "verify-queue-ux",
     title: "Improve verification queue UX",
-    reward: "50 Trust Tokens",
+    reward: "50 points",
     difficulty: "Easy",
     category: "Verification",
     description: "Refine the verify flow to reduce misclicks and improve decision clarity.",
@@ -30,7 +30,7 @@ const BOUNTIES: Bounty[] = [
   {
     id: "seller-dashboard-kpis",
     title: "Add seller KPI widgets",
-    reward: "100 Trust Tokens",
+    reward: "100 points",
     difficulty: "Medium",
     category: "Growth",
     description: "Add conversion-focused KPI widgets for sellers (views → orders → completion).",
@@ -38,7 +38,7 @@ const BOUNTIES: Bounty[] = [
   {
     id: "onchain-proof-viewer",
     title: "On-chain proof viewer",
-    reward: "250 Trust Tokens",
+    reward: "250 points",
     difficulty: "Hard",
     category: "Engineering",
     description: "Build a lightweight explorer panel for proofs/tx links with clear verification status.",
@@ -64,7 +64,7 @@ export default function BountyBoardPage() {
               <span className="text-sm">Bounty board</span>
             </div>
             <h1 className="text-3xl font-semibold tracking-tight mt-2">Bounties</h1>
-            <p className="text-muted-foreground mt-2">Pick a task, ship an improvement, and earn Trust Tokens.</p>
+            <p className="text-muted-foreground mt-2">Pick a task, ship an improvement, and earn points.</p>
           </div>
           <Button asChild>
             <Link href="/verify">

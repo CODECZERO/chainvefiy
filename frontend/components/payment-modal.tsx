@@ -211,7 +211,7 @@ export function PaymentModal({
               <div className="text-sm font-medium">Quote</div>
               {loadingQuote ? (
                 <div className="mt-2 text-sm text-muted-foreground inline-flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Fetching quote…
+                  <Loader2 className="w-4 h-4 animate-spin" /> Fetching quote...
                 </div>
               ) : quote ? (
                 <div className="mt-2 text-sm text-muted-foreground">
@@ -229,7 +229,7 @@ export function PaymentModal({
 
             <div className="grid gap-2">
               <Button disabled={!quote || paying !== null || !user?.id} className="w-full" onClick={handleWalletPay}>
-                {paying === "wallet" ? "Processing…" : "Pay with Stellar Wallet"}
+                {paying === "wallet" ? "Processing..." : "Pay with Stellar Wallet"}
               </Button>
               {!user?.id && <div className="text-xs text-muted-foreground">Sign in to complete checkout.</div>}
             </div>

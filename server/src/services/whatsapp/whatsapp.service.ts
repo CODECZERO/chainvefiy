@@ -61,7 +61,7 @@ export async function handleIncoming(req: any, res: any) {
     } else if (upper === 'STATUS') {
       reply = await getStatus(phone);
     } else if (upper === 'NEW' || upper === 'LIST') {
-      reply = "Let's list your product! 🛍️\n\nWhat is your product name?";
+      reply = "Let's list your product.\n\nWhat is your product name?";
       await updateSession(phone, 'AWAITING_PRODUCT_NAME', {});
     } else if (session.state !== 'IDLE') {
       reply = await handleFlow(session, message, mediaUrls, Latitude, Longitude);
@@ -75,7 +75,7 @@ export async function handleIncoming(req: any, res: any) {
       const lngNum = parseFloat(String(Longitude));
       await updateSession(phone, 'IDLE', { ...(session.sessionData as any), pendingGps: { lat: latNum, lng: lngNum } });
       reply =
-        '📍 Location received.\nNow send a photo/video for the stage update and I will attach this location automatically.\n\nTip: Add a short caption like “Packed” / “Shipped” / “Out for delivery”.';
+        'Location received.\nNow send a photo/video for the stage update and I will attach this location automatically.\n\nTip: Add a short caption like "Packed" / "Shipped" / "Out for delivery".';
     } else {
       // NVIDIA NIM handles everything else
       const supplier = await getSupplierByPhone(phone);
@@ -102,27 +102,27 @@ async function handleFlow(session: any, message: string, mediaUrls?: string[], l
   switch (session.state as WhatsAppState) {
     case 'AWAITING_PRODUCT_NAME': {
       await updateSession(phone, 'AWAITING_PRICE', { ...data, title: message });
-      return `Great! "${message}" 👍\n\nWhat is your price in INR? (numbers only)\nExample: 450`;
+      return `Great. "${message}"\n\nWhat is your price in INR? (numbers only)\nExample: 450`;
     }
 
     case 'AWAITING_PRICE': {
       const price = parseFloat(message);
       if (isNaN(price)) return 'Please enter a number only. Example: 450';
       await updateSession(phone, 'AWAITING_CATEGORY', { ...data, priceInr: price });
-      return `Price: ₹${price} ✅\n\nSelect category:\n1. Food & Spices\n2. Textiles\n3. Handicrafts\n4. Agriculture\n5. Electronics\n6. Other`;
+      return `Price saved: ₹${price}\n\nSelect category:\n1. Food & Spices\n2. Textiles\n3. Handicrafts\n4. Agriculture\n5. Electronics\n6. Other`;
     }
 
     case 'AWAITING_CATEGORY': {
       const cats = ['Food & Spices', 'Textiles', 'Handicrafts', 'Agriculture', 'Electronics', 'Other'];
       const cat = cats[parseInt(message) - 1] || 'Other';
       await updateSession(phone, 'AWAITING_DESCRIPTION', { ...data, category: cat });
-      return `Category: ${cat} ✅\n\nAdd a short description (1-2 sentences):`;
+      return `Category saved: ${cat}\n\nAdd a short description (1-2 sentences):`;
     }
 
     case 'AWAITING_DESCRIPTION': {
       const improved = await improveProductDescription(message, data.category);
       await updateSession(phone, 'AWAITING_PROOF_MEDIA', { ...data, description: improved, proofMedia: [] });
-      return `Description saved ✅\n\nNow send up to 5 photos or videos of your product.\nType DONE when finished.`;
+      return `Description saved.\n\nNow send up to 5 photos or videos of your product.\nType DONE when finished.`;
     }
 
     case 'AWAITING_PROOF_MEDIA': {
@@ -133,7 +133,7 @@ async function handleFlow(session: any, message: string, mediaUrls?: string[], l
       if (mediaUrls?.length) {
         const updated = [...(data.proofMedia || []), ...mediaUrls].slice(0, 5);
         await updateSession(phone, 'AWAITING_PROOF_MEDIA', { ...data, proofMedia: updated });
-        return `Photo ${updated.length} received ✅\n${updated.length < 5 ? 'Send more or type DONE' : 'Max 5 reached. Type DONE to finish.'}`;
+        return `Photo ${updated.length} received.\n${updated.length < 5 ? 'Send more or type DONE' : 'Max 5 reached. Type DONE to finish.'}`;
       }
       return 'Please send a photo or video, or type DONE to finish.';
     }
@@ -176,9 +176,9 @@ async function handleFlow(session: any, message: string, mediaUrls?: string[], l
 
         const tx = updated?.stellarTxId ? String(updated.stellarTxId) : '';
         const txLink = tx ? `https://stellar.expert/explorer/testnet/tx/${tx}` : '';
-        const addressLine = address ? `\n📌 ${address}` : '';
+        const addressLine = address ? `\nAddress: ${address}` : '';
         const txLine = txLink ? `\n\nStellar TX: ${txLink}` : '';
-        return `📍 Location saved ✅${addressLine}\n🗺️ Map: ${mapsLink}${txLine}`;
+        return `Location saved.${addressLine}\nMap: ${mapsLink}${txLine}`;
       }
       return 'Please share your location using the WhatsApp attachment button → Location.';
     }
@@ -226,10 +226,10 @@ async function finalizeProduct(phone: string, data: any): Promise<string> {
 
   // Best-effort: send QR as WhatsApp media (Twilio accepts a URL; data: URLs may not render in some clients)
   if (qrDataUrl) {
-    await send(phone, `📎 QR code for "${data.title}"`, qrDataUrl);
+    await send(phone, `QR code for "${data.title}"`, qrDataUrl);
   }
 
-  return `🎉 Product listed!\n\n📦 ${data.title}\n💰 ₹${data.priceInr} (≈${priceUsdc.toFixed(2)} USDC)\n🔍 Pending community verification\n\nView: ${productUrl}\n\nShare with buyers while community verifies (24-48 hrs).`;
+  return `Product listed.\n\n${data.title}\nPrice: ₹${data.priceInr} (≈${priceUsdc.toFixed(2)} USDC)\nStatus: Pending community verification\n\nView: ${productUrl}\n\nShare with buyers while community verifies (24-48 hrs).`;
 }
 
 // ─────────────────────────────────────────────
@@ -272,12 +272,12 @@ async function handleStageUpdate(phone: string, mediaUrl: string, caption: strin
       data: { gpsLat: pendingGps.lat, gpsLng: pendingGps.lng, gpsAddress: address || undefined },
     });
     await updateSession(phone, 'IDLE', { ...(session?.sessionData as any), pendingGps: undefined, lastProductId: product.id });
-    return `✅ Stage update recorded!\n\nProduct: ${product.title}\nStage: ${count + 1}\n📍 Location attached${address ? `\n📌 ${address}` : ''}\n🗺️ Map: ${mapsLink}`;
+    return `Stage update recorded.\n\nProduct: ${product.title}\nStage: ${count + 1}\nLocation attached${address ? `\nAddress: ${address}` : ''}\nMap: ${mapsLink}`;
   }
 
   await updateSession(phone, 'AWAITING_GPS', { stageUpdateId: stage.id, lastProductId: product.id });
 
-  return `✅ Stage update recorded!\n\nProduct: ${product.title}\nStage: ${count + 1}\n\nNow share your GPS location (tap 📎 → Location).`;
+  return `Stage update recorded.\n\nProduct: ${product.title}\nStage: ${count + 1}\n\nNow share your GPS location (tap Attachment -> Location).`;
 }
 
 // ─────────────────────────────────────────────
@@ -297,7 +297,7 @@ async function getStatus(phone: string): Promise<string> {
 
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   const lines = (products as any[]).map((p: any, i: number) => {
-    const icon = p.status === 'VERIFIED' ? '✅' : p.status === 'FLAGGED' ? '⚠️' : '⏳';
+    const icon = p.status === 'VERIFIED' ? '[VERIFIED]' : p.status === 'FLAGGED' ? '[FLAGGED]' : '[PENDING]';
     const url = `${appUrl}/product/${p.id}`;
     const votes = `${Number(p.voteReal)} real · ${Number(p.voteFake)} fake · ${Number(p.voteNeedsProof)} needs proof`;
     const usdc = Number(p.priceUsdc || 0);
@@ -338,11 +338,11 @@ export async function notifySupplier(
   if (!supplier?.whatsappNumber) return;
 
   const messages: Record<string, string> = {
-    PRODUCT_VERIFIED: `🎉 "${data.title}" verified!\n${data.voteReal} real votes ✅\nLive on marketplace:\n${data.url}`,
-    PRODUCT_FLAGGED: `⚠️ "${data.title}" flagged\nReason: ${data.reason}\nReply RESUBMIT to add better proof.`,
-    ORDER_RECEIVED: `💰 New order!\n${data.title} x${data.quantity}\n₹${data.amountInr} (${data.amountUsdc} USDC in escrow)\nShip within 3 days.`,
-    PAYMENT_RELEASED: `✅ Payment released!\n${data.amountUsdc} USDC → your wallet\nOrder #${data.orderId} complete.`,
-    PAYMENT_REFUNDED: `❌ Order #${data.orderId} disputed — funds returned to buyer.`,
+    PRODUCT_VERIFIED: `"${data.title}" verified.\nReal votes: ${data.voteReal}\nMarketplace:\n${data.url}`,
+    PRODUCT_FLAGGED: `"${data.title}" flagged.\nReason: ${data.reason}\nReply RESUBMIT to add better proof.`,
+    ORDER_RECEIVED: `New order received.\n${data.title} x${data.quantity}\nAmount: ${data.amountUsdc} USDC in escrow\nShip within 3 days.`,
+    PAYMENT_RELEASED: `Payment released.\n${data.amountUsdc} USDC sent to your wallet\nOrder #${data.orderId} complete.`,
+    PAYMENT_REFUNDED: `Order #${data.orderId} disputed. Funds returned to buyer.`,
   };
 
   const msg = messages[type];

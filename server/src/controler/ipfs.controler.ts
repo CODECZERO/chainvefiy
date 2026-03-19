@@ -17,7 +17,7 @@ const UploadFileOnIpfs = AsyncHandler(async (req: RequestBill, res: Response) =>
   if (!file) throw new ApiError(400, 'Please provide img');
 
   const uploadOnIpfsFile = await uploadOnIpfsBill(file);
-  console.log('📦 IPFS upload result:', uploadOnIpfsFile);
+  console.log('IPFS upload result:', uploadOnIpfsFile);
 
   if (!uploadOnIpfsFile || !uploadOnIpfsFile.success) {
     const errorMessage =
@@ -26,7 +26,7 @@ const UploadFileOnIpfs = AsyncHandler(async (req: RequestBill, res: Response) =>
     throw new ApiError(500, errorMessage);
   }
 
-  console.log('✅ File uploaded to IPFS successfully:', uploadOnIpfsFile.cid);
+  console.log('File uploaded to IPFS successfully:', uploadOnIpfsFile.cid);
 
   return res.status(200).json(
     new ApiResponse(

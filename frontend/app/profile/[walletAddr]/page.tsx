@@ -66,7 +66,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-amber-400">{profile.totalTrustTokens}</div>
-                  <div className="text-slate-500 text-xs">Trust Tokens</div>
+                  <div className="text-slate-500 text-xs">Score</div>
                 </div>
               </div>
 

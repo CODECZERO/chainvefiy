@@ -58,7 +58,7 @@ export function Header() {
         <div className="border-b border-border bg-background/90 backdrop-blur">
           <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-3">
             <div className="text-sm text-muted-foreground">
-              You’re browsing as a guest. Sign in to verify products, earn Trust Tokens, and access your dashboard.
+              You are browsing as a guest. Sign in to verify products and access your dashboard.
             </div>
             <div className="ml-auto flex items-center gap-2">
               <Button size="sm" className="h-8 rounded-lg" onClick={() => setAuthModalOpen(true)}>

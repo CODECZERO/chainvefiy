@@ -1,0 +1,116 @@
+name: Stellar App CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  smart-contracts:
+    name: Smart Contracts (Rust)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./smartContract
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            smartContract/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose
+
+  server:
+    name: Backend Server (Node.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Run Jest tests
+        run: npm test
+        env:
+          CI: true
+          # Secrets (test-only; replace with secrets in production)
+          STACK_ADMIN_SECRET: SC4AI3NPZLJKUF2K5HSCJNTD6RRYY3HFP3YC5EYWW5XBDJ3AIFSPC5CS
+          PINATA_JWT: mock_jwt_for_internal_testing
+          ATS: soul_society_access_secret_12345
+          RTS: soul_society_refresh_secret_67890
+          # Server config
+          PORT: 8080
+          MONGODB_URI: mongodb://localhost:27017/soul-society
+          FRONTEND_URL: http://localhost:3000
+          BLOCKCHAIN_NETWORK: https://horizon-testnet.stellar.org
+          SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
+          PINATA_GATEWAY: gateway.pinata.cloud
+          NODE_ENV: test
+          # Contract IDs for tests (from ./deploy_contract.sh; update after deploying to testnet)
+          CONTRACT_ID: CDJHBVSKFCSKRJ75J2TCNGVTHA4YCJ4IMM6MC6AR4X7CWU2A323JIBCO
+          VAULT_CONTRACT_ID: CDJHBVSKFCSKRJ75J2TCNGVTHA4YCJ4IMM6MC6AR4X7CWU2A323JIBCO
+          MISSION_REGISTRY_CONTRACT_ID: CC6EQFPH6MHFR2WWPGG22QTT47BIMQVVMBJQ2IN7HVCVS35SH3DCPVUK
+          ESCROW_CONTRACT_ID: CA57TB7WOSISHH6JFI4E7R5CCBTJZIXXKF5AB23J6SP5IQIVSXLDOTLX
+          REIATSU_TOKEN_CONTRACT_ID: CASXOT3CIMXKKENXZY5VFU7QPREPNGMV6JRDBQRHJGCBE5PQW67BVHGR
+          SOUL_BADGE_CONTRACT_ID: CAN7IUAX2EAEQAHWH2XBWH2X5VVUNZOXXIKBWFOFWY7U4BOWEFFLS5SW
+          TREASURY_CONTRACT_ID: CC2ITKV2MAKLBWFACNKOH4ZERXCDQBW6IWAADMVCKDKAC3YYOF22K6KZ
+          SOUL_REAPER_REGISTRY_CONTRACT_ID: CBALCN2YSUMBY4GLT2JEJLXEZ26RJFVRAMOQG3YNPTTJJZBMFI6GPPU4
+          NOTIFICATIONS_CONTRACT_ID: CCCNBFEXJJOQ7OSZD5COX73HAT7BPHRAUW6AZWXYFPWMLGHCMMEA4BX2
+
+  frontend:
+    name: Frontend (Playwright)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    env:
+      CI: true
+      # Public Config (from frontend/.env.local)
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8080/api
+      NEXT_PUBLIC_STELLAR_NETWORK: TESTNET
+      NEXT_PUBLIC_HORIZON_URL: https://horizon-testnet.stellar.org
+      NEXT_PUBLIC_REAPER_REGISTRY_CONTRACT_ID: CBALCN2YSUMBY4GLT2JEJLXEZ26RJFVRAMOQG3YNPTTJJZBMFI6GPPU4
+      NEXT_PUBLIC_VAULT_CONTRACT_ID: CDJHBVSKFCSKRJ75J2TCNGVTHA4YCJ4IMM6MC6AR4X7CWU2A323JIBCO
+      NEXT_PUBLIC_TOKEN_CONTRACT_ID: CASXOT3CIMXKKENXZY5VFU7QPREPNGMV6JRDBQRHJGCBE5PQW67BVHGR
+      NEXT_PUBLIC_BADGE_CONTRACT_ID: CAN7IUAX2EAEQAHWH2XBWH2X5VVUNZOXXIKBWFOFWY7U4BOWEFFLS5SW
+      NEXT_PUBLIC_APP_NAME: "Soul Society Registry"
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      - name: Build frontend
+        run: npm run build
+      - name: Verify build artifacts
+        run: ls -la .next
+      - name: Run Playwright tests
+        run: npx playwright test
