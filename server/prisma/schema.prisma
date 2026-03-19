@@ -1,0 +1,272 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+
+
+enum UserRole {
+  SUPPLIER
+  BUYER
+  VERIFIER
+  ADMIN
+}
+
+enum ProductStatus {
+  DRAFT
+  PENDING_VERIFICATION
+  VERIFIED
+  FLAGGED
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  DISPUTED
+  REFUNDED
+  COMPLETED
+}
+
+enum PaymentMethod {
+  STELLAR_XLM
+  STELLAR_USDC
+  STELLAR_OTHER
+}
+
+
+enum VoteType {
+  REAL
+  FAKE
+  NEEDS_MORE_PROOF
+}
+
+enum BadgeTier {
+  VERIFIED_SELLER
+  TRUSTED_SELLER
+  ELITE_SELLER
+}
+
+enum WhatsAppState {
+  IDLE
+  AWAITING_PRODUCT_NAME
+  AWAITING_PRICE
+  AWAITING_CATEGORY
+  AWAITING_DESCRIPTION
+  AWAITING_PROOF_MEDIA
+  AWAITING_GPS
+  AWAITING_RESUBMIT_PROOF
+}
+
+enum NotificationType {
+  PRODUCT_VERIFIED
+  PRODUCT_FLAGGED
+  ORDER_RECEIVED
+  PAYMENT_RELEASED
+  PAYMENT_REFUNDED
+  VOTE_REWARD
+  DISPUTE_OPENED
+  DISPUTE_RESOLVED
+}
+
+model User {
+  id             String   @id @default(uuid())
+  email          String?  @unique
+  passwordHash   String?
+  role           UserRole @default(BUYER)
+  stellarWallet  String?  @unique
+  whatsappNumber String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  supplierProfile Supplier?
+  buyerOrders     Order[]            @relation("BuyerOrders")
+  votes           Vote[]
+  notifications   Notification[]
+  trustTokens     TrustTokenLedger[]
+
+  @@map("users")
+}
+
+model Supplier {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  name           String
+  description    String?
+  location       String?
+  category       String?
+  stellarWallet  String?
+  whatsappNumber String   @unique
+  trustScore     Float    @default(0)
+  totalSales     Int      @default(0)
+  isVerified     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  products Product[]
+  badges   SellerBadge[]
+
+  @@index([trustScore])
+  @@index([location])
+  @@map("suppliers")
+}
+
+model Product {
+  id             String        @id @default(uuid())
+  supplierId     String
+  supplier       Supplier      @relation(fields: [supplierId], references: [id])
+  title          String
+  description    String?
+  category       String
+  priceInr       Decimal       @db.Decimal(10, 2)
+  priceUsdc      Decimal?      @db.Decimal(18, 7)
+  quantity       String?
+  status         ProductStatus @default(PENDING_VERIFICATION)
+  proofMediaUrls String[]
+  qrCodeUrl      String?
+  stellarTxId    String?
+  voteReal       Int           @default(0)
+  voteFake       Int           @default(0)
+  voteNeedsProof Int           @default(0)
+  verifiedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  stageUpdates StageUpdate[]
+  votes        Vote[]
+  orders       Order[]
+
+  @@index([category])
+  @@index([status])
+  @@index([priceInr])
+  @@index([supplierId])
+  @@map("products")
+}
+
+model StageUpdate {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  stageName   String
+  stageNumber Int
+  note        String?
+  photoUrl    String?
+  videoUrl    String?
+  gpsLat      Float?
+  gpsLng      Float?
+  gpsAddress  String?
+  stellarTxId String?
+  createdAt   DateTime @default(now())
+
+  @@index([productId])
+  @@map("stage_updates")
+}
+
+model Vote {
+  id         String   @id @default(uuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  voteType   VoteType
+  reason     String?
+  isAccurate Boolean?
+  createdAt  DateTime @default(now())
+
+  @@unique([productId, userId])
+  @@index([productId])
+  @@index([userId])
+  @@map("votes")
+}
+
+model Order {
+  id                String        @id @default(uuid())
+  productId         String
+  product           Product       @relation(fields: [productId], references: [id])
+  buyerId           String
+  buyer             User          @relation("BuyerOrders", fields: [buyerId], references: [id])
+  quantity          Int           @default(1)
+  priceInr          Decimal       @db.Decimal(10, 2)
+  priceUsdc         Decimal       @db.Decimal(18, 7)
+  paymentMethod     PaymentMethod
+  sourceCurrency    String?
+  sourceAmount      Decimal?      @db.Decimal(18, 7)
+  status            OrderStatus   @default(PENDING)
+  escrowContractId  String?
+  escrowTxId        String?
+  pathPaymentTxId   String?
+  releaseTxId       String?
+  refundTxId        String?
+  buyerRating       Int?
+  buyerReview       String?
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([buyerId])
+  @@index([productId])
+  @@index([status])
+  @@map("orders")
+}
+
+model TrustTokenLedger {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  amount      Int
+  reason      String
+  referenceId String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@map("trust_token_ledger")
+}
+
+model SellerBadge {
+  id         String    @id @default(uuid())
+  supplierId String
+  supplier   Supplier  @relation(fields: [supplierId], references: [id])
+  tier       BadgeTier
+  awardedAt  DateTime  @default(now())
+
+  @@unique([supplierId, tier])
+  @@map("seller_badges")
+}
+
+model WhatsAppSession {
+  id            String        @id @default(uuid())
+  phoneNumber   String        @unique
+  supplierId    String?
+  state         WhatsAppState @default(IDLE)
+  sessionData   Json?
+  lastMessageAt DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+
+  @@index([phoneNumber])
+  @@map("whatsapp_sessions")
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id])
+  type        NotificationType
+  title       String
+  body        String
+  isRead      Boolean          @default(false)
+  referenceId String?
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+generator seed {
+  provider = "prisma-client-js"
+}
