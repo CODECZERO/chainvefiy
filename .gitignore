@@ -1,0 +1,129 @@
+# Env files
+.env
+server/.env
+frontend/.env
+# -----------------------------
+# Core Build + Dependencies
+# -----------------------------
+node_modules/
+build/
+out/
+coverage/
+*.tsbuildinfo
+
+# -----------------------------
+# Logs and Debug Files
+# -----------------------------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.rts2_cache_esm/
+
+# -----------------------------
+# Environment & Config
+# -----------------------------
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# -----------------------------
+# Cache & Temporary Data
+# -----------------------------
+.cache
+.parcel-cache
+.next
+.nuxt
+.vuepress/dist
+.temp
+.docusaurus
+.serverless/
+.webpack-cache/
+.web_modules/
+.jspm_packages/
+bower_components
+.fusebox/
+.dynamodb/
+
+# -----------------------------
+# TypeScript / Lint Cache
+# -----------------------------
+.eslintcache
+.stylelintcache
+.nyc_output
+.node_repl_history
+
+# -----------------------------
+# Diagnostic / Reports
+# -----------------------------
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# -----------------------------
+# Build Tools and Packages
+# -----------------------------
+*.tgz
+.yarn-integrity
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# -----------------------------
+# IDE / Editor
+# -----------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# -----------------------------
+# Stellar / Soroban Specific
+# -----------------------------
+# Stellar keypairs or secrets (always keep private!)
+stellar-keys.json
+.stellar/
+.soroban/
+.soroban-data/
+.stellar-wallets/
+.stellar-test-data/
+.stellar-cache/
+
+# If you’re storing Horizon response or temp JSON files
+stellar-debug/
+*.stellar.json
+
+# If you use Docker or local Horizon/Soroban nodes
+docker-data/
+docker-compose.override.yml
+
+# -----------------------------
+# Optional (Frontend Projects)
+# -----------------------------
+public/*.map
+*.map
+.sass-cache/
+.cache-loader/
+
+# -----------------------------
+# Misc
+# -----------------------------
+lib-cov
+.lock-wscript
+.pnpm-debug.log*
+
+# User custom ignores
+scripts/
