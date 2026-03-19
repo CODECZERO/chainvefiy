@@ -1,0 +1,7 @@
+[package]
+name = "network-verifier"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# No heavy dependencies needed, we'll use std::process
