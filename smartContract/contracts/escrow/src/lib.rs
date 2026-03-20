@@ -24,6 +24,7 @@ pub enum EscrowStatus {
     Released,    // Product verified, funds released to Supplier
     Disputed,    // Community flagged as scam, 30-day lock started
     Refunded,    // Dispute confirmed, funds returned to Buyer
+    ReturnRequested, // Buyer returned product, waiting for supplier confirmation
 }
 
 #[derive(Clone, Debug)]
@@ -232,8 +233,8 @@ impl EscrowContract {
             .get(&DataKey::Escrow(product_id.clone()))
             .expect("Escrow not found");
 
-        if escrow.status != EscrowStatus::Locked {
-            panic!("Escrow is not in Locked state");
+        if escrow.status != EscrowStatus::Locked && escrow.status != EscrowStatus::ReturnRequested {
+            panic!("Escrow is not in Locked or ReturnRequested state");
         }
 
         // Prevent buyer/supplier from voting on their own escrow
@@ -298,8 +299,8 @@ impl EscrowContract {
             .get(&DataKey::Escrow(product_id.clone()))
             .expect("Escrow not found");
 
-        if escrow.status != EscrowStatus::Locked {
-            panic!("Escrow is not in Locked state");
+        if escrow.status != EscrowStatus::Locked && escrow.status != EscrowStatus::ReturnRequested {
+            panic!("Escrow is not in Locked or ReturnRequested state");
         }
 
         let total_votes = escrow.real_votes + escrow.scam_votes;
@@ -352,8 +353,8 @@ impl EscrowContract {
             .get(&DataKey::Escrow(product_id.clone()))
             .expect("Escrow not found");
 
-        if escrow.status != EscrowStatus::Locked {
-            panic!("Escrow is not in Locked state");
+        if escrow.status != EscrowStatus::Locked && escrow.status != EscrowStatus::ReturnRequested {
+            panic!("Escrow is not in Locked or ReturnRequested state");
         }
 
         let total_votes = escrow.real_votes + escrow.scam_votes;
@@ -423,6 +424,86 @@ impl EscrowContract {
             (symbol_short!("escrow"), symbol_short!("refund")),
             (product_id, escrow.buyer, escrow.locked_amount),
         );
+    }
+
+    // ── RETURNS ─────────────────────────────────────────────────
+
+    pub fn request_return(env: Env, product_id: String) {
+        let mut escrow: EscrowData = env.storage().persistent()
+            .get(&DataKey::Escrow(product_id.clone()))
+            .expect("Escrow not found");
+
+        escrow.buyer.require_auth();
+
+        if escrow.status != EscrowStatus::Locked {
+            panic!("Escrow must be in Locked state to request return");
+        }
+
+        escrow.status = EscrowStatus::ReturnRequested;
+        env.storage().persistent().set(&DataKey::Escrow(product_id.clone()), &escrow);
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("req_ret")),
+            (product_id, escrow.buyer),
+        );
+    }
+
+    pub fn confirm_return(env: Env, product_id: String) {
+        let mut escrow: EscrowData = env.storage().persistent()
+            .get(&DataKey::Escrow(product_id.clone()))
+            .expect("Escrow not found");
+
+        escrow.supplier.require_auth();
+
+        if escrow.status != EscrowStatus::ReturnRequested {
+            panic!("Escrow must be in ReturnRequested state");
+        }
+
+        escrow.status = EscrowStatus::Refunded;
+        env.storage().persistent().set(&DataKey::Escrow(product_id.clone()), &escrow);
+
+        let total_locked: i128 = env.storage().persistent()
+            .get(&DataKey::TotalLocked).unwrap_or(0);
+        env.storage().persistent().set(&DataKey::TotalLocked,
+            &(total_locked - escrow.locked_amount));
+
+        let total_refunded: i128 = env.storage().persistent()
+            .get(&DataKey::TotalRefunded).unwrap_or(0);
+        env.storage().persistent().set(&DataKey::TotalRefunded,
+            &(total_refunded + escrow.locked_amount));
+
+        env.events().publish(
+            (symbol_short!("escrow"), symbol_short!("conf_ret")),
+            (product_id, escrow.supplier, escrow.locked_amount),
+        );
+    }
+
+    // ── VOTE SLASHING ───────────────────────────────────────────
+
+    pub fn slash_voters(env: Env, trust_token_id: Address, product_id: String, voters: Vec<Address>) {
+        let admin: Address = env.storage().persistent()
+            .get(&DataKey::Admin).expect("Not initialized");
+        admin.require_auth();
+
+        let escrow: EscrowData = env.storage().persistent()
+            .get(&DataKey::Escrow(product_id.clone()))
+            .expect("Escrow not found");
+
+        if escrow.status != EscrowStatus::Refunded {
+            panic!("Escrow must be in Refunded state to slash");
+        }
+
+        for i in 0..voters.len() {
+            let voter = voters.get(i).unwrap();
+            // Call slash_vote(admin, voter, product_id) on the trust-token contract
+            let args = soroban_sdk::vec![
+                &env,
+                admin.to_val(),
+                voter.to_val(),
+                product_id.to_val()
+            ];
+            env.invoke_contract::<()>(&trust_token_id, &soroban_sdk::Symbol::new(&env, "slash_vote"), args);
+        }
     }
 
     // ── QUERIES ─────────────────────────────────────────────────

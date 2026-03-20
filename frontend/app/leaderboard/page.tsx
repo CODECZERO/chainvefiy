@@ -4,27 +4,8 @@ import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Trophy, Star, ShieldCheck, TrendingUp, Medal } from "lucide-react"
 
-const MOCK_LEADERS: any[] = [
-  { rank: 1, name: "Aditi", tokens: 320, votes: 148, accuracy: "92%", badge: "Elite Verifier" },
-  { rank: 2, name: "Rohan", tokens: 210, votes: 121, accuracy: "89%", badge: "Top Verifier" },
-  { rank: 3, name: "Meera", tokens: 180, votes: 104, accuracy: "87%", badge: "Top Verifier" },
-  { rank: 4, name: "Karan", tokens: 90, votes: 52, accuracy: "84%", badge: "Verifier" },
-]
-
-const RANK_STYLES: Record<number, string> = {
-  1: "bg-gradient-to-r from-amber-500/20 to-amber-400/10 border-amber-500/30",
-  2: "bg-gradient-to-r from-slate-400/10 to-slate-300/5 border-slate-400/30",
-  3: "bg-gradient-to-r from-orange-700/20 to-orange-600/10 border-orange-700/30",
-}
-
-const RANK_ICON: Record<number, any> = {
-  1: <Medal className="w-8 h-8 text-amber-400" />,
-  2: <Medal className="w-8 h-8 text-slate-400" />,
-  3: <Medal className="w-8 h-8 text-orange-700" />,
-}
-
 export default function LeaderboardPage() {
-  const [leaders, setLeaders] = useState(MOCK_LEADERS)
+  const [leaders, setLeaders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   const [stats, setStats] = useState({ verifiers: "0", products: "0", tokens: "0" })
@@ -45,10 +26,10 @@ export default function LeaderboardPage() {
           }))
           setLeaders(mapped)
         } else {
-          setLeaders(MOCK_LEADERS)
+          setLeaders([])
         }
       })
-      .catch(() => setLeaders(MOCK_LEADERS))
+      .catch(() => setLeaders([]))
       .finally(() => setLoading(false))
 
     // Global Stats for the top cards

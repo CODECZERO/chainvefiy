@@ -29,8 +29,8 @@ export class EscrowService {
      * Helper to build the transaction XDR for the frontend to sign.
      */
     async buildCreateEscrowTx(
-        donorPublicKey: string,
-        ngoPublicKey: string,
+        buyerPublicKey: string,
+        supplierPublicKey: string,
         totalAmount: number,
         lockedAmount: number,
         taskId: string,
@@ -39,7 +39,7 @@ export class EscrowService {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
-        const sourceAccount = await this.server.getAccount(donorPublicKey);
+        const sourceAccount = await this.server.getAccount(buyerPublicKey);
 
         const tx = new TransactionBuilder(sourceAccount, {
             fee: "100",
@@ -47,8 +47,8 @@ export class EscrowService {
         })
             .addOperation(contract.call(
                 'create_escrow',
-                new Address(donorPublicKey).toScVal(),
-                new Address(ngoPublicKey).toScVal(),
+                new Address(buyerPublicKey).toScVal(),
+                new Address(supplierPublicKey).toScVal(),
                 nativeToScVal(BigInt(Math.round(totalAmount)), { type: 'i128' }),
                 nativeToScVal(BigInt(Math.round(lockedAmount)), { type: 'i128' }),
                 nativeToScVal(taskId, { type: 'string' }),
@@ -73,17 +73,17 @@ export class EscrowService {
     }
 
     /**
-     * Submit Proof: NGO calls this.
+     * Submit Proof: Supplier calls this.
      */
     async buildSubmitProofTx(
-        ngoPublicKey: string,
+        supplierPublicKey: string,
         taskId: string,
         proofCid: string
     ) {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
-        const sourceAccount = await this.server.getAccount(ngoPublicKey);
+        const sourceAccount = await this.server.getAccount(supplierPublicKey);
 
         const tx = new TransactionBuilder(sourceAccount, {
             fee: "100",
@@ -123,6 +123,60 @@ export class EscrowService {
                 nativeToScVal(taskId, { type: 'string' }),
                 new Address(voterPublicKey).toScVal(),
                 nativeToScVal(isScam, { type: 'bool' })
+            ))
+            .setTimeout(180)
+            .build();
+
+        const preparedTx = await this.server.prepareTransaction(tx);
+        return preparedTx.toXDR();
+    }
+
+    /**
+     * Request Return: Buyer calls this.
+     */
+    async buildRequestReturnTx(
+        buyerPublicKey: string,
+        taskId: string
+    ) {
+        if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
+
+        const contract = new Contract(ESCROW_CONTRACT_ID);
+        const sourceAccount = await this.server.getAccount(buyerPublicKey);
+
+        const tx = new TransactionBuilder(sourceAccount, {
+            fee: "100",
+            networkPassphrase: Networks.TESTNET
+        })
+            .addOperation(contract.call(
+                'request_return',
+                nativeToScVal(taskId, { type: 'string' })
+            ))
+            .setTimeout(180)
+            .build();
+
+        const preparedTx = await this.server.prepareTransaction(tx);
+        return preparedTx.toXDR();
+    }
+
+    /**
+     * Confirm Return: Supplier calls this.
+     */
+    async buildConfirmReturnTx(
+        supplierPublicKey: string,
+        taskId: string
+    ) {
+        if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
+
+        const contract = new Contract(ESCROW_CONTRACT_ID);
+        const sourceAccount = await this.server.getAccount(supplierPublicKey);
+
+        const tx = new TransactionBuilder(sourceAccount, {
+            fee: "100",
+            networkPassphrase: Networks.TESTNET
+        })
+            .addOperation(contract.call(
+                'confirm_return',
+                nativeToScVal(taskId, { type: 'string' })
             ))
             .setTimeout(180)
             .build();
@@ -247,9 +301,9 @@ export class EscrowService {
     }
 
     /**
-     * Get all escrows for an NGO.
+     * Get all escrows for an Supplier.
      */
-    async getNgoEscrows(ngoPublicKey: string) {
+    async getSupplierEscrows(supplierPublicKey: string) {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
@@ -261,7 +315,7 @@ export class EscrowService {
         })
             .addOperation(contract.call(
                 'get_ngo_escrows',
-                new Address(ngoPublicKey).toScVal()
+                new Address(supplierPublicKey).toScVal()
             ))
             .setTimeout(30)
             .build();
@@ -279,7 +333,7 @@ export class EscrowService {
     /**
      * Get all escrows for a donor.
      */
-    async getDonorEscrows(donorPublicKey: string) {
+    async getBuyerEscrows(buyerPublicKey: string) {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
@@ -291,7 +345,7 @@ export class EscrowService {
         })
             .addOperation(contract.call(
                 'get_donor_escrows',
-                new Address(donorPublicKey).toScVal()
+                new Address(buyerPublicKey).toScVal()
             ))
             .setTimeout(30)
             .build();

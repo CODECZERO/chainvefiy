@@ -1,14 +1,10 @@
 import { Router } from 'express';
 import { handleIncoming } from '../../services/whatsapp/whatsapp.service.js';
+import { getWhatsappStatus } from '../../controler/v2/whatsapp.controller.js';
 
 const router = Router();
 
-// Twilio sends POST to this endpoint for every incoming WhatsApp message
 router.post('/webhook', handleIncoming);
-
-// Health check for WhatsApp route
-router.get('/status', (req, res) => {
-  res.json({ status: 'WhatsApp webhook active', number: process.env.TWILIO_WHATSAPP_NUMBER });
-});
+router.get('/status', getWhatsappStatus);
 
 export default router;

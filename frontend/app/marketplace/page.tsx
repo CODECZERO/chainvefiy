@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { convertInrToUsdc, getUSDCInrRate } from "@/lib/exchange-rates"
+import { ProductCard } from "@/components/product-card"
 
 const CATEGORIES = [
   { name: "All", icon: <LayoutGrid className="w-3.5 h-3.5" /> },
@@ -184,7 +185,7 @@ export default function Marketplace() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((p, i) => (
-              <ProductCard key={p.id} product={p} index={i} usdcInr={usdcInr} />
+              <ProductCard key={p.id} task={p} index={i} usdcInr={usdcInr} />
             ))}
             {filtered.length === 0 && (
               <div className="col-span-3 text-center py-24">
@@ -204,69 +205,6 @@ export default function Marketplace() {
             Showing <span className="text-slate-300 font-medium">{filtered.length}</span> product{filtered.length !== 1 ? "s" : ""}
           </div>
         )}
-      </div>
-    </div>
-  )
-}
-
-function ProductCard({ product: p, index, usdcInr }: { product: Product; index: number; usdcInr: number }) {
-  const badge = STATUS_BADGE[p.status] || STATUS_BADGE.PENDING_VERIFICATION
-  const total = p.voteReal + p.voteFake
-  const realPct = total > 0 ? (p.voteReal / total) * 100 : 0
-  const usdcPrice = typeof p.priceUsdc === "number" && p.priceUsdc > 0 ? p.priceUsdc : convertInrToUsdc(p.priceInr, usdcInr)
-
-  return (
-    <div
-      className="glass-card rounded-3xl overflow-hidden flex flex-col animate-fade-in-up"
-      style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
-    >
-      {/* Image */}
-      <div className="h-48 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-5xl relative group overflow-hidden">
-        {p.proofMediaUrls?.[0] ? (
-          <img src={p.proofMediaUrls[0]} alt={p.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-        ) : (
-          <Package className="w-16 h-16 text-slate-600 opacity-60 group-hover:scale-110 transition-transform duration-500" />
-        )}
-        <span className={`absolute top-4 right-4 flex items-center gap-1 border rounded-full px-2.5 py-1 text-xs font-semibold ${badge.class} backdrop-blur-sm`}>
-          {badge.icon} {badge.label}
-        </span>
-      </div>
-
-      <div className="p-5 flex flex-col flex-1">
-        <h3 className="font-bold text-foreground text-lg truncate">{p.title}</h3>
-        <p className="text-muted-foreground text-sm mt-1 flex items-center gap-1">
-          <Award className="w-3 h-3 text-blue-400" />
-          {p.supplier.name} · {p.supplier.location}
-        </p>
-
-        {/* Trust Score */}
-        {p.supplier.isVerified && (
-          <span className="mt-2 inline-flex items-center gap-1 text-[10px] text-emerald-400 font-semibold w-fit">
-            <CheckCircle2 className="w-3 h-3" /> Verified Supplier · {p.supplier.trustScore}% Trust
-          </span>
-        )}
-
-        <div className="flex items-baseline justify-between mt-4">
-          <span className="text-2xl font-bold text-foreground">₹{p.priceInr.toLocaleString()}</span>
-          <span className="text-sm text-blue-400 font-mono font-medium">≈ {Number(usdcPrice).toFixed(2)} USDC</span>
-        </div>
-
-        {/* Vote bar */}
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-            <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-400" />{p.voteReal} real</span>
-            <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-400" />{p.voteFake} fake</span>
-          </div>
-          <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-700" style={{ width: `${realPct}%` }} />
-          </div>
-        </div>
-
-        <Link href={`/product/${p.id}`} className="mt-5 block">
-          <Button variant="secondary" className="w-full rounded-2xl h-11 text-sm font-semibold transition-all">
-            View Product
-          </Button>
-        </Link>
       </div>
     </div>
   )

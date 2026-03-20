@@ -141,7 +141,7 @@ export const mockSuppliers = [
 ]
 
 /** @deprecated Use mockSuppliers instead */
-export const mockNGOs = mockSuppliers
+export const mockSuppliers = mockSuppliers
 
 export const mockBuyers = [
   { id: 1, address: "GABCD...1234", totalSpent: 15000, orderCount: 8 },

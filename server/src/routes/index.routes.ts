@@ -21,7 +21,8 @@ import whatsappRoutes from './v2/whatsapp.routes.js';
 import paymentsRoutes from './v2/payments.routes.js';
 import notificationsRoutes from './v2/notifications.routes.js';
 import ratesRoutes from './v2/rates.routes.js';
-
+import qrRoutes from './v2/qr.routes.js';
+import deliveryRoutes from './v2/delivery.routes.js';
 
 const router = Router();
 
@@ -48,6 +49,8 @@ router.use('/whatsapp', whatsappRoutes);
 router.use('/payments', paymentsRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/rates', ratesRoutes);
+router.use('/qr', qrRoutes);
+router.use('/delivery', deliveryRoutes);
 
 
 import legacyOrderRoutes from './order.routes.js';

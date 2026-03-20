@@ -26,7 +26,7 @@ export const API_ROUTES = {
     PRODUCTS: "/products",
     COMMUNITY: "/community",
     ORDERS: "/orders",
-    AUTH: "/ngo",
+    AUTH: "/supplier",
     USER: "/user",
     PAYMENTS: "/payments",
 };

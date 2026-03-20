@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { signup, login, logout, getMe } from '../controler/userNgo.controler.js';
+import { signup, login, logout, getMe } from '../controler/userSupplier.controler.js';
 import { verifyJWT } from '../midelware/verify.midelware.js';
 
 const router = Router();

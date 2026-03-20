@@ -13,7 +13,7 @@ export const store = configureStore({
     wallet: walletReducer,
     ui: uiReducer,
     userAuth: userAuthReducer,
-    ngoAuth: legacyAuthReducer,       // legacy — kept so old components don't crash
+    supplierAuth: legacyAuthReducer,       // legacy — kept so old components don't crash
     community: communityReducer,
     stats: statsReducer,
   },

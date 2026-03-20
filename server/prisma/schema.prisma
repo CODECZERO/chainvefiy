@@ -31,6 +31,8 @@ enum OrderStatus {
   DISPUTED
   REFUNDED
   COMPLETED
+  RETURN_REQUESTED
+  RETURNED
 }
 
 enum PaymentMethod {
@@ -72,6 +74,11 @@ enum NotificationType {
   VOTE_REWARD
   DISPUTE_OPENED
   DISPUTE_RESOLVED
+  RETURN_REQUESTED
+  RETURN_CONFIRMED
+  DELIVERY_CONFIRMED
+  PROOF_DEADLINE_PASSED
+  REFUND_WINDOW_CLOSING
 }
 
 model User {
@@ -105,12 +112,14 @@ model Supplier {
   whatsappNumber String   @unique
   trustScore     Float    @default(0)
   totalSales     Int      @default(0)
+  flagCount      Int      @default(0)
   isVerified     Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   products Product[]
   badges   SellerBadge[]
+  machineScanners MachineScanner[]
 
   @@index([trustScore])
   @@index([location])
@@ -141,6 +150,7 @@ model Product {
   stageUpdates StageUpdate[]
   votes        Vote[]
   orders       Order[]
+  qrCodes      QRCode[]
 
   @@index([category])
   @@index([status])
@@ -175,9 +185,12 @@ model Vote {
   userId     String
   user       User     @relation(fields: [userId], references: [id])
   voteType   VoteType
-  reason     String?
-  isAccurate Boolean?
-  createdAt  DateTime @default(now())
+  reason        String?
+  isAccurate    Boolean?
+  stakedAmount  Int      @default(0)
+  stakeReleased Boolean  @default(false)
+  stakeSlashed  Boolean  @default(false)
+  createdAt     DateTime @default(now())
 
   @@unique([productId, userId])
   @@index([productId])
@@ -202,17 +215,38 @@ model Order {
   escrowTxId        String?
   pathPaymentTxId   String?
   releaseTxId       String?
-  refundTxId        String?
-  buyerRating       Int?
-  buyerReview       String?
+  refundTxId          String?
+  buyerRating         Int?
+  buyerReview         String?
 
-  createdAt         DateTime      @default(now())
+  qrBuyerToken        String?       @unique
+  qrSupplierToken     String?       @unique
+  qrBuyerScannedAt    DateTime?
+  qrSupplierScannedAt DateTime?
+  deliveryCertCid     String?
+  deliveryCertTxId    String?
+  deliveredAt         DateTime?
+
+  // ── Delivery confirmation ──────────────────────────────────────────
+  deliveryConfirmedAt  DateTime?   // when buyer clicked "I received it"
+  proofDeadlineAt      DateTime?   // deliveryConfirmedAt + 72 hours
+  autoCompletedAt      DateTime?   // set by background job if no proof in 72h
+
+  // ── Buyer dispute proof ────────────────────────────────────────────
+  buyerProofCid        String?     // IPFS CID of buyer's evidence (photo/video)
+  buyerProofUploadedAt DateTime?
+  buyerDisputeReason   String?     // free text, max 500 chars
+  refundEligible       Boolean     @default(true)
+
+  createdAt           DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
   @@index([buyerId])
   @@index([productId])
   @@index([status])
   @@map("orders")
+
+  qrCode          QRCode?
 }
 
 model TrustTokenLedger {
@@ -265,6 +299,184 @@ model Notification {
 
   @@index([userId, isRead])
   @@map("notifications")
+}
+
+// ─── Living QR Enums ──────────────────────────────────────────────────────────
+
+enum QRPurpose {
+  ORDER_BUYER
+  ORDER_SUPPLIER
+  PRODUCT_PROOF
+  DELIVERY_CERT
+}
+
+enum ScanSource {
+  BROWSER
+  MACHINE
+  API
+}
+
+// ─── Machine Scanner Registry ─────────────────────────────────────────────────
+
+model MachineScanner {
+  id              String    @id @default(uuid())
+  apiKey          String    @unique
+  apiKeyHint      String
+  name            String
+  deviceModel     String?
+  firmwareVersion String?
+  supplierId      String?
+  supplier        Supplier? @relation(fields: [supplierId], references: [id])
+
+  fixedLat        Float?
+  fixedLng        Float?
+  fixedLocation   String?
+  fixedCountry    String?
+
+  isActive        Boolean   @default(true)
+  totalScans      Int       @default(0)
+  lastSeenAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  scans           QRScan[]
+
+  @@index([supplierId])
+  @@map("machine_scanners")
+}
+
+// ─── QR Code Master Record ────────────────────────────────────────────────────
+
+model QRCode {
+  id               String     @id @default(uuid())
+
+  orderId          String?    @unique
+  order            Order?     @relation(fields: [orderId], references: [id])
+  productId        String?
+  product          Product?   @relation(fields: [productId], references: [id])
+  supplierId       String?
+
+  token            String     @unique
+  shortCode        String     @unique
+  purpose          QRPurpose
+
+  totalScans       Int        @default(0)
+  browserScans     Int        @default(0)
+  machineScans     Int        @default(0)
+  uniqueDevices    Int        @default(0)
+  countriesReached String[]
+  firstScannedAt   DateTime?
+  lastScannedAt    DateTime?
+  lastScannedCity  String?
+  lastScannedCountry String?
+
+  genesisAnchorTx  String?
+  latestAnchorTx   String?
+  totalAnchors     Int        @default(0)
+
+  // GS1 Digital Link
+  productGTIN    String?
+  serialNumber   String?
+  gs1DigitalLink String?
+
+  // Expiry
+  expiresAt      DateTime?
+  isExpired      Boolean   @default(false)
+
+  // Anomaly tracking
+  anomalyCount   Int       @default(0)
+  lastAnomalyAt  DateTime?
+
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  scans            QRScan[]
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("qr_codes")
+}
+
+// ─── Individual Scan Event ────────────────────────────────────────────────────
+
+model QRScan {
+  id               String         @id @default(uuid())
+  qrCodeId         String
+  qrCode           QRCode         @relation(fields: [qrCodeId], references: [id])
+
+  scanSource       ScanSource
+  machineScannerIdRef String?
+  machineScanner   MachineScanner? @relation(fields: [machineScannerIdRef], references: [id])
+
+  scanNumber       Int
+
+  clientTimestamp  DateTime?
+  serverTimestamp  DateTime       @default(now())
+
+  userAgent        String?        @db.Text
+  deviceType       String?
+  os               String?
+  browser          String?
+  screenResolution String?
+  language         String?
+  timezone         String?
+  connectionType   String?
+  referrer         String?        @db.Text
+  isOnline         Boolean?
+
+  gpsLat           Float?
+  gpsLng           Float?
+  gpsAccuracy      Float?
+  gpsAltitude      Float?
+  locationPermission String?
+
+  machineDeviceId  String?
+  machineModel     String?
+  machineFirmware  String?
+  rawScanData      String?        @db.Text
+  machineEventType String?
+
+  ipAddress        String?
+  ipCountry        String?
+  ipCountryName    String?
+  ipCity           String?
+  ipRegion         String?
+  ipIsp            String?
+  ipIsProxy        Boolean?       @default(false)
+  ipLat            Float?
+  ipLng            Float?
+
+  resolvedLat      Float?
+  resolvedLng      Float?
+  resolvedLocation String?
+  coordinateSource String?
+
+  scannerRole      String?
+  walletConnected  Boolean        @default(false)
+  walletAddress    String?
+
+  anchoredOnChain  Boolean        @default(false)
+  anchorTxId       String?
+  anchorReason     String?
+
+  // Anomaly detection
+  anomalyScore   Int       @default(0)
+  anomalyReasons String[]
+
+  // Ephemeral scan token (anti-replay)
+  scanToken      String?   @unique
+  scanTokenUsed  Boolean   @default(false)
+
+  // View routing
+  viewType       String?
+
+  createdAt        DateTime       @default(now())
+
+  @@index([qrCodeId])
+  @@index([serverTimestamp])
+  @@index([ipCountry])
+  @@index([scanSource])
+  @@map("qr_scans")
 }
 
 generator seed {

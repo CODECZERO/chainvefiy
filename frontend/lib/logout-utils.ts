@@ -10,7 +10,7 @@ export function clearAllBrowserData() {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('supplier_profile')
-    localStorage.removeItem('ngo_profile') // legacy cleanup
+    localStorage.removeItem('supplier_profile') // legacy cleanup
     
     // Wallet data
     localStorage.removeItem('wallet_connected')
@@ -54,7 +54,7 @@ export function clearSupplierData() {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('supplier_profile')
-    localStorage.removeItem('ngo_profile') // legacy cleanup
+    localStorage.removeItem('supplier_profile') // legacy cleanup
   }
   
   // Clear supplier cookies
@@ -62,12 +62,12 @@ export function clearSupplierData() {
     document.cookie = "accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     document.cookie = "refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
     document.cookie = "supplier_profile=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-    document.cookie = "ngo_profile=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT" // legacy cleanup
+    document.cookie = "supplier_profile=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT" // legacy cleanup
   }
 }
 
 /** @deprecated Use clearSupplierData instead */
-export const clearNGOData = clearSupplierData
+export const clearSupplierData = clearSupplierData
 
 export function clearWalletData() {
   // Clear wallet-specific data

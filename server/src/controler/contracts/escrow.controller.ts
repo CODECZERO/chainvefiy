@@ -6,15 +6,15 @@ import { escrowService } from '../../services/stellar/escrow.service.js';
 
 // Build transaction XDR endpoints
 const buildCreateEscrowTx = AsyncHandler(async (req: Request, res: Response) => {
-  const { donorPublicKey, ngoPublicKey, totalAmount, lockedAmount, taskId, deadline } = req.body;
+  const { buyerPublicKey, supplierPublicKey, totalAmount, lockedAmount, taskId, deadline } = req.body;
   
-  if (!donorPublicKey || !ngoPublicKey || !totalAmount || !lockedAmount || !taskId) {
+  if (!buyerPublicKey || !supplierPublicKey || !totalAmount || !lockedAmount || !taskId) {
     throw new ApiError(400, 'Missing required fields');
   }
 
   const xdr = await escrowService.buildCreateEscrowTx(
-    donorPublicKey,
-    ngoPublicKey,
+    buyerPublicKey,
+    supplierPublicKey,
     totalAmount,
     lockedAmount,
     taskId,
@@ -25,13 +25,13 @@ const buildCreateEscrowTx = AsyncHandler(async (req: Request, res: Response) => 
 });
 
 const buildSubmitProofTx = AsyncHandler(async (req: Request, res: Response) => {
-  const { ngoPublicKey, taskId, proofCid } = req.body;
+  const { supplierPublicKey, taskId, proofCid } = req.body;
   
-  if (!ngoPublicKey || !taskId || !proofCid) {
+  if (!supplierPublicKey || !taskId || !proofCid) {
     throw new ApiError(400, 'Missing required fields');
   }
 
-  const xdr = await escrowService.buildSubmitProofTx(ngoPublicKey, taskId, proofCid);
+  const xdr = await escrowService.buildSubmitProofTx(supplierPublicKey, taskId, proofCid);
   return res.status(200).json(new ApiResponse(200, { xdr }, 'Submit proof transaction built'));
 });
 
@@ -44,6 +44,28 @@ const buildVoteTx = AsyncHandler(async (req: Request, res: Response) => {
 
   const xdr = await escrowService.buildVoteTx(voterPublicKey, taskId, isScam);
   return res.status(200).json(new ApiResponse(200, { xdr }, 'Vote transaction built'));
+});
+
+const buildRequestReturnTx = AsyncHandler(async (req: Request, res: Response) => {
+  const { buyerPublicKey, taskId } = req.body;
+  
+  if (!buyerPublicKey || !taskId) {
+    throw new ApiError(400, 'Missing required fields');
+  }
+
+  const xdr = await escrowService.buildRequestReturnTx(buyerPublicKey, taskId);
+  return res.status(200).json(new ApiResponse(200, { xdr }, 'Request return transaction built'));
+});
+
+const buildConfirmReturnTx = AsyncHandler(async (req: Request, res: Response) => {
+  const { supplierPublicKey, taskId } = req.body;
+  
+  if (!supplierPublicKey || !taskId) {
+    throw new ApiError(400, 'Missing required fields');
+  }
+
+  const xdr = await escrowService.buildConfirmReturnTx(supplierPublicKey, taskId);
+  return res.status(200).json(new ApiResponse(200, { xdr }, 'Confirm return transaction built'));
 });
 
 // Admin execution endpoints
@@ -92,25 +114,25 @@ const getEscrow = AsyncHandler(async (req: Request, res: Response) => {
   return res.status(200).json(new ApiResponse(200, escrow, 'Escrow retrieved'));
 });
 
-const getNgoEscrows = AsyncHandler(async (req: Request, res: Response) => {
-  const { ngoPublicKey } = req.params;
+const getSupplierEscrows = AsyncHandler(async (req: Request, res: Response) => {
+  const { supplierPublicKey } = req.params;
   
-  if (!ngoPublicKey) {
-    throw new ApiError(400, 'NGO public key is required');
+  if (!supplierPublicKey) {
+    throw new ApiError(400, 'Supplier public key is required');
   }
 
-  const escrows = await escrowService.getNgoEscrows(ngoPublicKey as string);
-  return res.status(200).json(new ApiResponse(200, escrows, 'NGO escrows retrieved'));
+  const escrows = await escrowService.getSupplierEscrows(supplierPublicKey as string);
+  return res.status(200).json(new ApiResponse(200, escrows, 'Supplier escrows retrieved'));
 });
 
-const getDonorEscrows = AsyncHandler(async (req: Request, res: Response) => {
-  const { donorPublicKey } = req.params;
+const getBuyerEscrows = AsyncHandler(async (req: Request, res: Response) => {
+  const { buyerPublicKey } = req.params;
   
-  if (!donorPublicKey) {
+  if (!buyerPublicKey) {
     throw new ApiError(400, 'Donor public key is required');
   }
 
-  const escrows = await escrowService.getDonorEscrows(donorPublicKey as string);
+  const escrows = await escrowService.getBuyerEscrows(buyerPublicKey as string);
   return res.status(200).json(new ApiResponse(200, escrows, 'Donor escrows retrieved'));
 });
 
@@ -149,9 +171,11 @@ export {
   disputeEscrow,
   refundEscrow,
   getEscrow,
-  getNgoEscrows,
-  getDonorEscrows,
+  getSupplierEscrows,
+  getBuyerEscrows,
   getVotes,
   getVoterStats,
-  getPlatformStats
+  getPlatformStats,
+  buildRequestReturnTx,
+  buildConfirmReturnTx
 };

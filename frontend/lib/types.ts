@@ -18,7 +18,7 @@ export interface Product {
     goal?: number;
     raised?: number;
     image?: string;
-    ngo?: string;
+    supplier?: string;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -40,7 +40,7 @@ export interface Supplier {
 }
 
 /** @deprecated Use Supplier instead */
-export type NGO = Supplier;
+export type Supplier = Supplier;
 
 export interface Order {
     _id: string;
@@ -75,7 +75,7 @@ export interface LoginData {
 }
 
 export interface SignupData {
-    ngoName: string;
+    supplierName: string;
     regNumber: string;
     description: string;
     email: string;

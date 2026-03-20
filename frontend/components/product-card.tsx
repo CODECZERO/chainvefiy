@@ -1,91 +1,108 @@
-import React from "react"
+import React, { ReactNode } from "react"
 import Link from "next/link"
-import { CheckCircle2, ShieldAlert, Clock, ArrowRight } from "lucide-react"
+import { CheckCircle2, ShieldAlert, Clock, ArrowRight, Award, Package, XCircle } from "lucide-react"
 import { convertInrToUsdc } from "@/lib/exchange-rates"
+import { Button } from "@/components/ui/button"
 
-export function ProductCard({ task }: { task: any }) {
+const STATUS_BADGE: Record<string, { label: string; class: string; icon: ReactNode }> = {
+  VERIFIED: {
+    label: "Verified",
+    class: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    icon: <CheckCircle2 className="w-3 h-3" />,
+  },
+  PENDING_VERIFICATION: {
+    label: "Pending",
+    class: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    icon: <Clock className="w-3 h-3" />,
+  },
+  FLAGGED: {
+    label: "Flagged",
+    class: "bg-red-500/10 text-red-400 border-red-500/20",
+    icon: <XCircle className="w-3 h-3" />,
+  },
+}
+
+export function ProductCard({ task, index = 0, usdcInr = 83.33 }: { task: any; index?: number; usdcInr?: number; key?: React.Key }) {
   // Gracefully handle legacy task/mission renaming maps if any leftover properties exist
   const id = task.id || task._id
   const title = task.title || task.name
   const description = task.description
-  const status = task.status || task.missionStatus
+  const status = task.status || task.missionStatus || "PENDING_VERIFICATION"
   const mediaUrls = task.proofMediaUrls || task.mediaUrls || []
-  const image = mediaUrls[0] || "https://images.unsplash.com/photo-1510166089176-b57564a542b1?auto=format&fit=crop&q=80&w=400&h=300"
+  const image = mediaUrls[0] || null
   
   const voteReal = task.voteReal || 0
   const voteFake = task.voteFake || 0
   const totalVotes = voteReal + voteFake
-  const trustPct = totalVotes > 0 ? (voteReal / totalVotes) * 100 : 0
+  const realPct = totalVotes > 0 ? (voteReal / totalVotes) * 100 : 0
   
   const priceInr = task.priceInr || 0
-  const priceUsdc = priceInr > 0 ? convertInrToUsdc(priceInr, 83.33).toFixed(4) : "0.0000"
+  const usdcPrice = typeof task.priceUsdc === "number" && task.priceUsdc > 0 ? task.priceUsdc : convertInrToUsdc(priceInr, usdcInr)
 
-  let badge = { cls: "bg-amber-500/90 text-white backdrop-blur", icon: Clock, text: "Pending" }
-  if (status === "VERIFIED") badge = { cls: "bg-emerald-500/90 text-white backdrop-blur", icon: CheckCircle2, text: "Verified" }
-  else if (status === "FLAGGED") badge = { cls: "bg-red-500/90 text-white backdrop-blur", icon: ShieldAlert, text: "Flagged" }
+  const badge = STATUS_BADGE[status] || STATUS_BADGE.PENDING_VERIFICATION
 
   return (
-    <div className="group flex flex-col bg-[#111827] border border-[#1F2D40] rounded-2xl overflow-hidden hover:border-orange-500/40 hover:shadow-[0_0_20px_rgba(232,119,46,0.1)] transition-all duration-300">
-      
-      {/* ── IMAGE AREA ── */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-[#0D1321]">
-        <img 
-          src={image} 
-          alt={title} 
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#111827] via-transparent to-transparent opacity-80" />
-        
-        {/* Status Badge */}
-        <div className={`absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold shadow-lg ${badge.cls}`}>
-          <badge.icon className="w-3.5 h-3.5" /> {badge.text}
-        </div>
+    <div
+      className="glass-card rounded-3xl overflow-hidden flex flex-col animate-fade-in-up hover:border-orange-500/40 hover:shadow-[0_0_20px_rgba(232,119,46,0.1)] transition-all duration-300"
+      style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
+    >
+      {/* Image */}
+      <div className="h-48 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-5xl relative group overflow-hidden">
+        {image ? (
+          <img src={image} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        ) : (
+          <Package className="w-16 h-16 text-slate-600 opacity-60 group-hover:scale-110 transition-transform duration-500" />
+        )}
+        <span className={`absolute top-4 right-4 flex items-center gap-1 border rounded-full px-2.5 py-1 text-xs font-semibold ${badge.class} backdrop-blur-sm`}>
+          {badge.icon} {badge.label}
+        </span>
       </div>
 
-      {/* ── CONTENT AREA ── */}
-      <div className="flex flex-col flex-1 p-5 pt-4">
+      <div className="p-5 flex flex-col flex-1">
+        <h3 className="font-bold text-foreground text-lg truncate">{title}</h3>
         
-        <div className="mb-3">
-          <h3 className="font-bold text-lg text-[#F9FAFB] line-clamp-1 group-hover:text-orange-400 transition-colors">{title}</h3>
+        {task.supplier && (
+          <p className="text-muted-foreground text-sm mt-1 flex items-center gap-1">
+            <Award className="w-3 h-3 text-blue-400" />
+            {task.supplier.name} {task.supplier.location ? `· ${task.supplier.location}` : ""}
+          </p>
+        )}
+
+        {/* Trust Score */}
+        {task.supplier?.isVerified && (
+          <span className="mt-2 inline-flex items-center gap-1 text-[10px] text-emerald-400 font-semibold w-fit">
+            <CheckCircle2 className="w-3 h-3" /> Verified Supplier · {task.supplier.trustScore}% Trust
+          </span>
+        )}
+
+        {/* If no supplier info provided (fallback for old usage), show description */}
+        {!task.supplier && description && (
           <p className="text-[#9CA3AF] text-sm line-clamp-2 mt-1 min-h-[40px] leading-relaxed">
             {description}
           </p>
+        )}
+
+        <div className="flex items-baseline justify-between mt-4">
+          <span className="text-2xl font-bold text-foreground">₹{Number(priceInr).toLocaleString()}</span>
+          <span className="text-sm text-blue-400 font-mono font-medium">≈ {Number(usdcPrice).toFixed(2)} USDC</span>
         </div>
 
-        {/* ── VOTING BAR ── */}
-        <div className="mb-4">
-          <div className="flex justify-between text-xs font-medium mb-1.5">
-            <span className="text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> {voteReal} Real
-            </span>
-            <span className="text-red-400">{voteFake} Fake</span>
+        {/* Vote bar */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+            <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-400" />{voteReal} real</span>
+            <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-400" />{voteFake} fake</span>
           </div>
-          <div className="h-1.5 bg-[#1C2333] rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-emerald-500 to-orange-500 rounded-full transition-all duration-1000"
-              style={{ width: `${totalVotes > 0 ? trustPct : 100}%`, opacity: totalVotes > 0 ? 1 : 0.2 }} 
-            />
+          <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-700" style={{ width: `${realPct}%` }} />
           </div>
         </div>
 
-        <div className="mt-auto pt-4 border-t border-[#1F2D40] flex items-center justify-between">
-          <div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-xl font-bold font-mono tracking-tight">₹{priceInr}</span>
-            </div>
-            <div className="text-xs font-mono text-[#2775CA] font-medium mt-0.5 border border-[#2775CA]/20 bg-[#2775CA]/10 px-1.5 py-0.5 rounded inline-block">
-              {priceUsdc} USDC
-            </div>
-          </div>
-          
-          <Link href={`/product/${id}`}>
-            <button className="bg-[#E8772E] hover:bg-[#d96a24] text-white w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:w-auto group-hover:px-4 active:scale-95 shadow-lg shadow-orange-500/20">
-              <span className="hidden group-hover:inline text-sm font-semibold mr-1.5 overflow-hidden whitespace-nowrap">View</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </Link>
-        </div>
-
+        <Link href={`/product/${id}`} className="mt-5 block">
+          <Button variant="secondary" className="w-full rounded-2xl h-11 text-sm font-semibold transition-all">
+            View Product
+          </Button>
+        </Link>
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
-// Renamed: NGO → Supplier
+// Renamed: Supplier → Supplier
 import { prisma } from '../lib/prisma.js';
 
-export const registerNGO = async (data: {
+export const registerSupplier = async (data: {
   userId: string;
   name: string;
   description?: string;
@@ -13,14 +13,14 @@ export const registerNGO = async (data: {
   return prisma.supplier.create({ data });
 };
 
-export const getNGO = async (supplierId: string) => {
+export const getSupplier = async (supplierId: string) => {
   return prisma.supplier.findUnique({
     where: { id: supplierId },
     include: { products: { where: { status: 'VERIFIED' }, take: 10 }, badges: true },
   });
 };
 
-export const findNGOByEmail = async (email: string) => {
+export const findSupplierByEmail = async (email: string) => {
   return prisma.user.findUnique({
     where: { email },
     include: { supplierProfile: true },

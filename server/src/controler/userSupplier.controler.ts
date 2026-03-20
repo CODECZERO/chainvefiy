@@ -3,7 +3,7 @@ import { asyncHandler } from '../util/asyncHandler.util.js';
 import { ApiError } from '../util/apiError.util.js';
 import { ApiResponse } from '../util/apiResponse.util.js';
 import { saveUserAndTokens, loginUser } from '../dbQueries/user.Queries.js';
-import { registerNGO } from '../dbQueries/supplier.Queries.js';
+import { registerSupplier } from '../dbQueries/supplier.Queries.js';
 import { createAccount } from '../services/stellar/account.stellar.js';
 import logger from '../util/logger.js';
 
@@ -54,7 +54,7 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
 
   // If registering as supplier, create supplier profile
   if (role === 'SUPPLIER' && name && whatsappNumber) {
-    await registerNGO({
+    await registerSupplier({
       userId: user.id,
       name,
       location,

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const signupSchema = z.object({
     body: z.object({
-        ngoName: z.string().min(3, 'NGO name must be at least 3 characters long'),
+        supplierName: z.string().min(3, 'Supplier name must be at least 3 characters long'),
         email: z.email('Invalid email address'),
         password: z.string().min(8, 'Password must be at least 8 characters long'),
         description: z.string().min(10, 'Description must be at least 10 characters long'),

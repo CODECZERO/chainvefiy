@@ -74,8 +74,8 @@ export const processDonation = createAsyncThunk(
       // Use escrow-based donation (which now has internal polling for confirmation)
       result = await submitEscrowTransaction(
         {
-          donorPublicKey: publicKey,
-          ngoPublicKey: receiverPublicKey,
+          buyerPublicKey: publicKey,
+          supplierPublicKey: receiverPublicKey,
           totalAmount: xlmAmount,
           lockedAmount: xlmAmount * 0.5,
           taskId: taskId,

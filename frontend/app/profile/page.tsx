@@ -25,6 +25,11 @@ export default function SelfProfilePage() {
               <Link href="/seller-dashboard">Open seller dashboard</Link>
             </Button>
           )}
+          {user?.role === "BUYER" && (
+            <Button asChild>
+              <Link href="/buyer-dashboard">Open buyer dashboard</Link>
+            </Button>
+          )}
         </div>
 
         <div className="grid gap-4 mt-8">

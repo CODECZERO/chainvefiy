@@ -42,9 +42,16 @@ export function UploadProofModal({ isOpen, onClose, task }: UploadProofModalProp
     try {
       setStep("uploading")
 
-      // NOTE: Proof upload is not wired in this version.
-      // Keeping the UI but generating a mock CID so the modal works without backend dependencies.
-      const cid = "QmMock" + Math.random().toString(16).slice(2)
+      // NOTE: Wiring native IPFS Pinata HTTP Gateway connectivity.
+      const ipfsData = new FormData()
+      ipfsData.append('file', formData.file)
+      const ipfsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ipfs/upload`, {
+        method: 'POST',
+        body: ipfsData
+      }).then(res => res.json())
+
+      if (!ipfsRes?.data?.cid) throw new Error("Failed to pin media to IPFS. Check Pinata credentials.")
+      const cid = ipfsRes.data.cid
       setIpfsCid(cid)
 
 
@@ -57,7 +64,7 @@ export function UploadProofModal({ isOpen, onClose, task }: UploadProofModalProp
 
       const result = await submitProofTransaction(
         {
-          ngoPublicKey: publicKey,
+          supplierPublicKey: publicKey,
           taskId: task.id || task._id,
           proofCid: cid,
         },

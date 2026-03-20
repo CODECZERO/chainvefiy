@@ -13,6 +13,7 @@ import {
   ChevronRight, AlertTriangle, Star, BarChart2, Settings,
   ExternalLink, Copy, QrCode, Bell, Camera, Video, MapPin, Tag, Zap
 } from "lucide-react"
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 const NAV = [
   { id: "overview",     label: "Overview",        icon: BarChart2 },
@@ -37,7 +38,7 @@ export default function SellerDashboard() {
   const [active, setActive] = useState("overview")
   const [products, setProducts] = useState<any[]>([])
   const [orders, setOrders] = useState<any[]>([])
-  const [stats, setStats] = useState({ active: 0, pending: 0, flagged: 0, totalSales: 0, usdcBalance: "0.0000", usdcInr: "0" })
+  const [stats, setStats] = useState({ active: 0, pending: 0, flagged: 0, totalSales: 0, usdcBalance: "0.0000", usdcInr: "0", analytics: null as any })
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const { user } = useSelector((s: RootState) => s.userAuth)
@@ -50,12 +51,14 @@ export default function SellerDashboard() {
     setLoading(true)
     try {
       if (sid) {
-        const [prodRes, ordRes] = await Promise.all([
+        const [prodRes, ordRes, anRes] = await Promise.all([
           fetch(`${api}/suppliers/${sid}/products`, { credentials: "include" }),
           fetch(`${api}/donations/supplier/${sid}`, { credentials: "include" }),
+          fetch(`${api}/suppliers/${sid}/analytics`, { credentials: "include" })
         ])
         const prods = (await prodRes.json()).data || []
         const ords  = (await ordRes.json()).data  || []
+        const analyticsData = (await anRes.json()).data || null
         setProducts(prods)
         setOrders(ords)
         const completed = ords.filter((o: any) => o.status === "COMPLETED")
@@ -67,6 +70,7 @@ export default function SellerDashboard() {
           totalSales:   completed.length,
           usdcBalance:  totalUsdc.toFixed(4),
           usdcInr:      (totalUsdc * 85).toFixed(0),
+          analytics:    analyticsData
         })
       }
     } catch {}
@@ -209,6 +213,45 @@ export default function SellerDashboard() {
                   </div>
                 ))}
               </div>
+
+              {/* Charts & Analytics Row */}
+              {stats.analytics && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="md:col-span-2 bg-[#111827] border border-[#1F2D40] rounded-2xl p-5">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-[#6B7280] mb-4">Revenue Overview (USDC)</h3>
+                    <div className="h-64 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={stats.analytics.revenueByMonth}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1F2D40" vertical={false} />
+                          <XAxis dataKey="name" stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke="#6B7280" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+                          <RechartsTooltip cursor={{fill: '#1C2333'}} contentStyle={{backgroundColor: '#111827', borderColor: '#1F2D40', borderRadius: '8px'}} itemStyle={{color: '#2775CA'}} />
+                          <Bar dataKey="uv" fill="#2775CA" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-br from-[#0D1A2D] to-[#111827] border border-[#2775CA]/20 rounded-2xl p-5">
+                      <div className="text-xs font-semibold uppercase tracking-widest text-[#2775CA]/70 mb-2">Category Rank</div>
+                      <div className="text-2xl font-bold text-white">{stats.analytics.categoryRank}</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-emerald-900/20 to-[#111827] border border-emerald-500/20 rounded-2xl p-5">
+                      <div className="text-xs font-semibold uppercase tracking-widest text-emerald-500/70 mb-2">Loyalty Rate</div>
+                      <div className="text-2xl font-bold text-emerald-400">{stats.analytics.repeatBuyerRate}</div>
+                    </div>
+                    <div className="bg-[#111827] border border-[#1F2D40] rounded-2xl p-5 shadow-lg">
+                      <div className="text-xs font-semibold uppercase tracking-widest text-[#6B7280] mb-3">Top Products</div>
+                      {stats.analytics.topProducts?.length > 0 ? stats.analytics.topProducts.map((tp: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center py-2 border-b border-[#1F2D40] last:border-0">
+                          <span className="text-sm font-medium text-white truncate max-w-[150px]">{tp.title}</span>
+                          <span className="text-xs font-mono text-[#6B7280]">{tp.quantity} sold</span>
+                        </div>
+                      )) : <p className="text-[#6B7280] text-sm">No sales yet.</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* WhatsApp CTA banner */}
               <div className="relative overflow-hidden bg-gradient-to-r from-[#0D2010] to-[#111827] border border-[#25D366]/20 rounded-2xl p-5 flex items-center gap-5">

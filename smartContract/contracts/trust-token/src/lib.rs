@@ -19,6 +19,7 @@ pub enum DataKey {
     Allowance(Address, Address), // (owner, spender) -> amount
     VestingLock(Address),        // Locked amount
     VestingUnlockAt(Address),    // Unlock timestamp
+    VoteStake(Address, String),  // (voter, product_id) -> staked amount
 }
 
 #[contracttype]
@@ -260,6 +261,62 @@ impl TrustToken {
         }
 
         rewards
+    }
+
+    // ── VOTE STAKING (VERIFICATION ECONOMY) ──────────────────────
+
+    pub fn stake_for_vote(env: Env, voter: Address, product_id: soroban_sdk::String, amount: i128) {
+        voter.require_auth();
+        if amount <= 0 { panic!("Invalid amount"); }
+
+        let balance = Self::raw_balance(&env, &voter);
+        let locked = Self::raw_locked(&env, &voter);
+        if balance - locked < amount { panic!("Insufficient unlocked balance"); }
+
+        // Deduct from balance
+        env.storage().persistent().set(&DataKey::Balance(voter.clone()), &(balance - amount));
+
+        // Record vote stake
+        let key = DataKey::VoteStake(voter.clone(), product_id.clone());
+        let mut current_stake: i128 = env.storage().persistent().get(&key).unwrap_or(0);
+        current_stake += amount;
+        env.storage().persistent().set(&key, &current_stake);
+
+        env.events().publish((symbol_short!("v_stake"), voter), (product_id, amount));
+    }
+
+    pub fn release_vote_stake(env: Env, admin: Address, voter: Address, product_id: soroban_sdk::String) {
+        admin.require_auth();
+        Self::require_admin(&env, &admin);
+
+        let key = DataKey::VoteStake(voter.clone(), product_id.clone());
+        let staked: i128 = env.storage().persistent().get(&key).unwrap_or(0);
+        if staked == 0 { return; }
+
+        env.storage().persistent().remove(&key);
+
+        let balance = Self::raw_balance(&env, &voter);
+        env.storage().persistent().set(&DataKey::Balance(voter.clone()), &(balance + staked));
+
+        env.events().publish((symbol_short!("v_releas"), voter), (product_id, staked));
+    }
+
+    pub fn slash_vote(env: Env, admin: Address, voter: Address, product_id: soroban_sdk::String) {
+        admin.require_auth();
+        Self::require_admin(&env, &admin);
+
+        let key = DataKey::VoteStake(voter.clone(), product_id.clone());
+        let staked: i128 = env.storage().persistent().get(&key).unwrap_or(0);
+        if staked == 0 { return; }
+
+        env.storage().persistent().remove(&key);
+
+        // Burn the tokens from total supply
+        let mut supply = Self::raw_supply(&env);
+        supply = supply.checked_sub(staked).expect("Supply underflow");
+        env.storage().persistent().set(&DataKey::TotalSupply, &supply);
+
+        env.events().publish((symbol_short!("v_slash"), voter), (product_id, staked));
     }
 
     // ── VESTING / LOCK ───────────────────────────────────────────

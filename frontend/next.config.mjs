@@ -22,6 +22,17 @@ const nextConfig = {
       },
     ]
   },
+  // GS1 Digital Link rewrites — enables worldwide scanner compatibility
+  async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+    return [
+      {
+        // GS1 Digital Link: /01/{gtin}/21/{serial}?qr=PRM-XXXX
+        source: '/01/:gtin/21/:serial',
+        destination: `${apiUrl}/qr/resolve/:serial`,
+      },
+    ]
+  },
 }
 
 export default nextConfig

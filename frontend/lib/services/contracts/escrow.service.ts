@@ -3,8 +3,8 @@ import { ApiResponse } from '../../types';
 
 export class EscrowContractService {
     async buildCreateEscrowTx(data: {
-        donorPublicKey: string;
-        ngoPublicKey: string;
+        buyerPublicKey: string;
+        supplierPublicKey: string;
         totalAmount: number;
         lockedAmount: number;
         taskId: string;
@@ -17,7 +17,7 @@ export class EscrowContractService {
     }
 
     async buildSubmitProofTx(data: {
-        ngoPublicKey: string;
+        supplierPublicKey: string;
         taskId: string;
         proofCid: string;
     }): Promise<ApiResponse<{ xdr: string }>> {
@@ -33,6 +33,26 @@ export class EscrowContractService {
         isScam: boolean;
     }): Promise<ApiResponse<{ xdr: string }>> {
         return apiClient.request('/contracts/escrow/vote/xdr', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }, true);
+    }
+
+    async buildRequestReturnTx(data: {
+        buyerPublicKey: string;
+        taskId: string;
+    }): Promise<ApiResponse<{ xdr: string }>> {
+        return apiClient.request('/contracts/escrow/request-return/xdr', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }, true);
+    }
+
+    async buildConfirmReturnTx(data: {
+        supplierPublicKey: string;
+        taskId: string;
+    }): Promise<ApiResponse<{ xdr: string }>> {
+        return apiClient.request('/contracts/escrow/confirm-return/xdr', {
             method: 'POST',
             body: JSON.stringify(data),
         }, true);
@@ -63,12 +83,12 @@ export class EscrowContractService {
         return apiClient.request(`/contracts/escrow/${taskId}`, {}, false);
     }
 
-    async getNgoEscrows(ngoPublicKey: string): Promise<ApiResponse<any[]>> {
-        return apiClient.request(`/contracts/escrow/ngo/${ngoPublicKey}`, {}, false);
+    async getSupplierEscrows(supplierPublicKey: string): Promise<ApiResponse<any[]>> {
+        return apiClient.request(`/contracts/escrow/supplier/${supplierPublicKey}`, {}, false);
     }
 
-    async getDonorEscrows(donorPublicKey: string): Promise<ApiResponse<any[]>> {
-        return apiClient.request(`/contracts/escrow/donor/${donorPublicKey}`, {}, false);
+    async getBuyerEscrows(buyerPublicKey: string): Promise<ApiResponse<any[]>> {
+        return apiClient.request(`/contracts/escrow/buyer/${buyerPublicKey}`, {}, false);
     }
 
     async getVotes(taskId: string): Promise<ApiResponse<any[]>> {

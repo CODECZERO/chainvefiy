@@ -29,10 +29,23 @@ export default function VerifyPage() {
   const [loading, setLoading] = useState(true)
   const [votes, setVotes] = useState<Record<string, string>>({})
   const [tokensEarned, setTokensEarned] = useState(0)
+  const [tokenBalance, setTokenBalance] = useState(0)
   const [tab, setTab] = useState<"queue" | "history">("queue")
   const { user } = useSelector((s: RootState) => s.userAuth)
 
-  useEffect(() => { loadQueue() }, [])
+  useEffect(() => { 
+    loadQueue();
+    if (user?.id) loadTokens();
+  }, [user?.id])
+
+  const loadTokens = async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/tokens/${user.id}`);
+      const data = await res.json();
+      if (data.data?.balance !== undefined) setTokenBalance(data.data.balance);
+    } catch {}
+  }
 
   const loadQueue = async () => {
     try {
@@ -49,11 +62,20 @@ export default function VerifyPage() {
   const castVote = async (productId: string, voteType: "REAL" | "FAKE" | "NEEDS_MORE_PROOF") => {
     try {
       if (!user?.id) return
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/community/vote`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${productId}/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, userId: user.id, voteType }),
+        body: JSON.stringify({ userId: user.id, voteType, reason: "" }),
       })
+      if (!res.ok) {
+        const error = await res.json();
+        alert(error.message || "Failed to vote due to insufficient stakes.");
+        return;
+      }
+      
+      const required = queue.find(p => p.id === productId)?.priceInr || 0;
+      const deduction = required >= 20000 ? 50 : required >= 5000 ? 10 : 0;
+      setTokenBalance(b => b - deduction);
     } catch {}
     setVotes(prev => ({ ...prev, [productId]: voteType }))
     setTokensEarned(t => t + 1)
@@ -71,6 +93,9 @@ export default function VerifyPage() {
           <div>
             <h1 className="text-3xl font-bold">Verify Products</h1>
             <p className="text-muted-foreground mt-1">Review proof and vote to keep the marketplace clean.</p>
+            <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mt-2">
+               You have {tokenBalance} tokens. Higher value products require staked tokens. You earn bonus tokens if your consensus is accurate!
+            </p>
           </div>
           {tokensEarned > 0 && (
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl px-5 py-3 text-center">
@@ -151,24 +176,41 @@ export default function VerifyPage() {
                     {/* Vote buttons */}
                     <div className="border-t border-border px-5 py-3 flex items-center gap-3">
                       <span className="text-xs text-muted-foreground mr-auto">Vote on this product:</span>
-                      <button
-                        onClick={() => castVote(p.id, "REAL")}
-                        className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
-                      >
-                        <CheckCircle2 className="w-4 h-4" /> Real
-                      </button>
-                      <button
-                        onClick={() => castVote(p.id, "FAKE")}
-                        className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
-                      >
-                        <XCircle className="w-4 h-4" /> Fake
-                      </button>
-                      <button
-                        onClick={() => castVote(p.id, "NEEDS_MORE_PROOF")}
-                        className="flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
-                      >
-                        <HelpCircle className="w-4 h-4" /> Need More Proof
-                      </button>
+                      
+                      {(() => {
+                        const required = p.priceInr >= 20000 ? 50 : p.priceInr >= 5000 ? 10 : 0;
+                        const disabled = tokenBalance < required;
+                        return (
+                          <>
+                            {required > 0 && (
+                               <span className="text-xs font-semibold mr-2 text-amber-500">
+                                 Requires {required} Trust Tokens
+                               </span>
+                            )}
+                            <button
+                              disabled={disabled}
+                              onClick={() => castVote(p.id, "REAL")}
+                              className={`flex items-center gap-2 border rounded-xl px-4 py-2 text-sm font-medium transition-colors ${disabled ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground' : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'}`}
+                            >
+                              <CheckCircle2 className="w-4 h-4" /> Real
+                            </button>
+                            <button
+                              disabled={disabled}
+                              onClick={() => castVote(p.id, "FAKE")}
+                              className={`flex items-center gap-2 border rounded-xl px-4 py-2 text-sm font-medium transition-colors ${disabled ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground' : 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20'}`}
+                            >
+                              <XCircle className="w-4 h-4" /> Fake
+                            </button>
+                            <button
+                              disabled={disabled}
+                              onClick={() => castVote(p.id, "NEEDS_MORE_PROOF")}
+                              className={`flex items-center gap-2 border rounded-xl px-4 py-2 text-sm font-medium transition-colors ${disabled ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground' : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/20'}`}
+                            >
+                              <HelpCircle className="w-4 h-4" /> Need More Proof
+                            </button>
+                          </>
+                        )
+                      })()}
                     </div>
                   </div>
                 )

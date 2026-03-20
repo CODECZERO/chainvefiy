@@ -134,13 +134,13 @@ class ApiClient {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      localStorage.removeItem('ngo_profile');
+      localStorage.removeItem('supplier_profile');
 
       // Expire cookies
       const cookieOptions = "path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC";
       document.cookie = `accessToken=; ${cookieOptions}`;
       document.cookie = `refreshToken=; ${cookieOptions}`;
-      document.cookie = `ngo_profile=; ${cookieOptions}`;
+      document.cookie = `supplier_profile=; ${cookieOptions}`;
     }
   }
 

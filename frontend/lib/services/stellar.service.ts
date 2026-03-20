@@ -62,7 +62,7 @@ export class StellarService {
 
     // Community & Proofs xdr generation
     async getSubmitProofXdr(data: {
-        ngoPublicKey: string;
+        supplierPublicKey: string;
         taskId: string;
         proofCid: string;
     }): Promise<ApiResponse<{ xdr: string }>> {

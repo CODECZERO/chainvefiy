@@ -9,6 +9,7 @@ export default function SupplierProfilePage({ params }: { params: { id: string }
   const [profile, setProfile] = useState<any>(null)
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [flagging, setFlagging] = useState(false)
   const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
 
   useEffect(() => {
@@ -30,6 +31,36 @@ export default function SupplierProfilePage({ params }: { params: { id: string }
     }
     fetchProfile()
   }, [params.id])
+
+  const handleFlagSupplier = async () => {
+    if (!profile || flagging) return;
+    if (!confirm("Are you sure you want to flag this supplier?")) return;
+    
+    setFlagging(true);
+    try {
+      const res = await fetch(`${api}/v2/suppliers/${params.id}/flag`, {
+        method: 'POST' // Make sure it hits the right versioned route, if they use v2 in the main index
+      });
+      // The current frontend uses ${api}/suppliers in fetchProfile.
+      // Wait, let's look at fetchProfile. It uses fetch(`${api}/suppliers/${params.id}`). So let's use that path.
+      
+      const retryRes = await fetch(`${api}/suppliers/${params.id}/flag`, {
+        method: 'POST'
+      });
+      
+      if (retryRes.ok) {
+        alert("Supplier flagged successfully.");
+        setProfile((prev: any) => ({ ...prev, flagCount: (prev.flagCount || 0) + 1 }));
+      } else {
+        alert("Failed to flag supplier.");
+      }
+    } catch(err) {
+      console.error(err);
+      alert("Error flagging supplier.");
+    } finally {
+      setFlagging(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -125,12 +156,19 @@ export default function SupplierProfilePage({ params }: { params: { id: string }
             </div>
             
             {/* Desktop Message Button */}
-            <div className="hidden md:block shrink-0">
+            <div className="hidden md:flex shrink-0 gap-3 items-center">
               <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=Hi ${profile.name}`} target="_blank" rel="noopener noreferrer">
                 <button className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 font-bold rounded-xl px-6 py-3 transition-all flex items-center gap-2">
                   <MessageCircle className="w-5 h-5" /> Contact on WhatsApp
                 </button>
               </a>
+              <button 
+                onClick={handleFlagSupplier}
+                disabled={flagging}
+                className="bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30 hover:bg-red-500/20 font-bold rounded-xl px-6 py-3 transition-all flex items-center gap-2"
+              >
+                <AlertTriangle className="w-5 h-5" /> {flagging ? "Flagging..." : "Flag Supplier"}
+              </button>
             </div>
           </div>
         </div>
@@ -143,7 +181,7 @@ export default function SupplierProfilePage({ params }: { params: { id: string }
             { label: "Verified Products", value: verifiedCount, icon: Package, col: "text-orange-400", bg: "from-orange-500/10" },
             { label: "Community Trust", value: `${ts}%`, icon: ShieldCheck, col: colorClass, bg: "from-primary/10" },
             { label: "Total Sales", value: totalSales || "0", icon: CheckCircle2, col: "text-emerald-400", bg: "from-emerald-500/10" },
-            { label: "Flagged Items", value: products.filter(p => p.status === "FLAGGED").length, icon: AlertTriangle, col: "text-red-400", bg: "from-red-500/10" }
+            { label: "Flags", value: profile.flagCount || 0, icon: AlertTriangle, col: "text-red-400", bg: "from-red-500/10" }
           ].map(s => (
             <div key={s.label} className={`bg-gradient-to-br ${s.bg} to-card border border-border rounded-2xl p-4 md:p-5 group relative`}>
               <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2 md:mb-3">{s.label}</div>

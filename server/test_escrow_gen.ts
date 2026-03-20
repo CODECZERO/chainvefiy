@@ -8,14 +8,14 @@ dotenv.config();
 async function test() {
     const service = new EscrowService();
     const donorPubKey = 'GB5GF6YMRVW43J7HYLFBDNM4J6ODLB4I74RBB3FV3AVFDZ36FN7JGKRF';
-    const ngoPubKey = 'GB5CLXT47BNHNXLR67QSNB5FBM5NTSFSO6IUJCMSO6BY6ZYBTYJGY566';
+    const supplierPubKey = 'GB5CLXT47BNHNXLR67QSNB5FBM5NTSFSO6IUJCMSO6BY6ZYBTYJGY566';
 
     console.log('Generating XDR for donor:', donorPubKey);
 
     try {
         const xdrString = await service.buildCreateEscrowTx(
             donorPubKey,
-            ngoPubKey,
+            supplierPubKey,
             100, // total
             50,  // locked
             'test-task',

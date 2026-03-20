@@ -12,7 +12,7 @@ export interface SupplierProfile {
 }
 
 /** @deprecated Use SupplierProfile instead */
-export type NGOProfile = SupplierProfile
+export type SupplierProfile = SupplierProfile
 
 interface UserAuthState {
   isAuthenticated: boolean
@@ -85,7 +85,7 @@ export const loginSupplier = createAsyncThunk(
 )
 
 /** @deprecated Use loginSupplier instead */
-export const loginNGO = loginSupplier
+export const loginSupplier = loginSupplier
 
 export const signupSupplier = createAsyncThunk(
   "userAuth/signup",
@@ -93,7 +93,7 @@ export const signupSupplier = createAsyncThunk(
     try {
       const { signup } = await import("@/lib/api-service")
       const response = await signup({
-        ngoName: supplierData.name || supplierData.ngoName,
+        supplierName: supplierData.name || supplierData.supplierName,
         regNumber: supplierData.registrationNumber || supplierData.regNumber,
         description: supplierData.description,
         email: supplierData.email,
@@ -145,7 +145,7 @@ export const signupSupplier = createAsyncThunk(
 )
 
 /** @deprecated Use signupSupplier instead */
-export const signupNGO = signupSupplier
+export const signupSupplier = signupSupplier
 
 export const fetchCurrentUser = createAsyncThunk(
   "userAuth/checkCookie",
@@ -159,11 +159,11 @@ export const fetchCurrentUser = createAsyncThunk(
       let profileStr = localStorage.getItem('supplier_profile')
       // Fallback to legacy key
       if (!profileStr) {
-        profileStr = localStorage.getItem('ngo_profile')
+        profileStr = localStorage.getItem('supplier_profile')
         if (profileStr) {
           // Migrate to new key
           localStorage.setItem('supplier_profile', profileStr)
-          localStorage.removeItem('ngo_profile')
+          localStorage.removeItem('supplier_profile')
         }
       }
       if (profileStr) {
@@ -171,7 +171,7 @@ export const fetchCurrentUser = createAsyncThunk(
           return JSON.parse(profileStr) as SupplierProfile
         } catch (parseError) {
           localStorage.removeItem('supplier_profile')
-          localStorage.removeItem('ngo_profile')
+          localStorage.removeItem('supplier_profile')
         }
       }
 
@@ -185,7 +185,7 @@ export const fetchCurrentUser = createAsyncThunk(
         {} as Record<string, string>,
       )
 
-      const cookieProfile = cookies.supplier_profile || cookies.ngo_profile
+      const cookieProfile = cookies.supplier_profile || cookies.supplier_profile
       if (cookieProfile) {
         try {
           const profile = JSON.parse(decodeURIComponent(cookieProfile))
@@ -215,7 +215,7 @@ const userAuthSlice = createSlice({
         localStorage.removeItem('accessToken')
         localStorage.removeItem('refreshToken')
         localStorage.removeItem('supplier_profile')
-        localStorage.removeItem('ngo_profile') // legacy cleanup
+        localStorage.removeItem('supplier_profile') // legacy cleanup
 
         // Clear wallet data from localStorage
         localStorage.removeItem('wallet_connected')
@@ -232,7 +232,7 @@ const userAuthSlice = createSlice({
       document.cookie = `accessToken=; ${cookieOptions}`
       document.cookie = `refreshToken=; ${cookieOptions}`
       document.cookie = `supplier_profile=; ${cookieOptions}`
-      document.cookie = `ngo_profile=; ${cookieOptions}` // legacy cleanup
+      document.cookie = `supplier_profile=; ${cookieOptions}` // legacy cleanup
 
       // Clear wallet-related cookies
       document.cookie = `wallet_connected=; ${cookieOptions}`
@@ -274,7 +274,7 @@ const userAuthSlice = createSlice({
           {} as Record<string, string>,
         )
 
-        const cookieProfile = cookies.supplier_profile || cookies.ngo_profile
+        const cookieProfile = cookies.supplier_profile || cookies.supplier_profile
         if (cookies.accessToken && cookieProfile) {
           try {
             const profile = JSON.parse(decodeURIComponent(cookieProfile))
@@ -283,7 +283,7 @@ const userAuthSlice = createSlice({
           } catch (err) {
             // Clear corrupted cookies
             document.cookie = "supplier_profile=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"
-            document.cookie = "ngo_profile=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"
+            document.cookie = "supplier_profile=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"
           }
         }
       }
@@ -348,8 +348,8 @@ const userAuthSlice = createSlice({
 export const { logoutUser, clearSupplierError, checkSupplierCookie } = userAuthSlice.actions
 
 /** @deprecated Use clearSupplierError instead */
-export const clearNGOError = clearSupplierError
+export const clearSupplierError = clearSupplierError
 /** @deprecated Use checkSupplierCookie instead */
-export const checkNGOCookie = checkSupplierCookie
+export const checkSupplierCookie = checkSupplierCookie
 
 export default userAuthSlice.reducer

@@ -3,6 +3,8 @@ import { connectDB } from './util/appStartup.util.js';
 import { prisma } from './lib/prisma.js';
 import logger from './util/logger.js';
 import { connectRedis, redisClient } from './util/redis.util.js';
+import { startAnchorJob } from './jobs/anchorQueue.job.js';
+import { startDeliveryAutoCompleteJob } from './jobs/deliveryAutoComplete.job.js';
 
 const PORT = process.env.PORT || 8000;
 
@@ -26,6 +28,12 @@ const start = async () => {
       logger.info(`Pramanik server running on port ${PORT}`);
       logger.info(`Environment: ${process.env.NODE_ENV}`);
       logger.info(`WhatsApp webhook: POST /api/whatsapp/webhook`);
+
+      // Start background jobs
+      if (process.env.NODE_ENV !== 'test') {
+        startAnchorJob();
+        startDeliveryAutoCompleteJob();
+      }
     });
   } catch (error) {
     logger.error('Failed to start server', { error });
