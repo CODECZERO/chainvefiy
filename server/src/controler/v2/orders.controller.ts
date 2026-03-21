@@ -8,12 +8,31 @@ import jwt from 'jsonwebtoken';
 import { uploadOnIpfs } from '../../services/ipfs(pinata)/ipfs.services.js';
 
 export const placeOrder = async (req: any, res: Response) => {
-  const { productId, buyerId, quantity = 1, paymentMethod, sourceCurrency, sourceAmount, escrowTxId, pathPaymentTxId } = req.body;
+  const { productId, buyerId, quantity = 1, paymentMethod, sourceCurrency, sourceAmount, escrowTxId, pathPaymentTxId, stellarWallet } = req.body;
+
+  let finalBuyerId = buyerId;
+
+  // If no buyerId provided but wallet is present, find or create the buyer user
+  if (!finalBuyerId && stellarWallet) {
+    let user = await prisma.user.findUnique({ where: { stellarWallet } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          stellarWallet,
+          role: 'BUYER',
+        }
+      });
+    }
+    finalBuyerId = user.id;
+  }
+
+  if (!finalBuyerId) {
+    return res.status(401).json(new ApiResponse(401, null, 'Authentication or wallet connection required'));
+  }
 
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) {
-    res.status(404).json(new ApiResponse(404, null, 'Product not found'));
-    return;
+    return res.status(404).json(new ApiResponse(404, null, 'Product not found'));
   }
 
   const usdcInr = await getUSDCtoINRRate();
@@ -22,7 +41,7 @@ export const placeOrder = async (req: any, res: Response) => {
   const order = await prisma.order.create({
     data: {
       productId,
-      buyerId,
+      buyerId: String(finalBuyerId),
       quantity: parseInt(quantity as string),
       priceInr: product.priceInr,
       priceUsdc,
@@ -55,22 +74,31 @@ export const placeOrder = async (req: any, res: Response) => {
 
   await cacheDel(`product:${productId}`);
 
-  res.status(201).json(new ApiResponse(201, updatedOrder, 'Order placed'));
+  return res.status(201).json(new ApiResponse(201, updatedOrder, 'Order placed'));
 };
 
 export const getBuyerOrders = async (req: any, res: Response) => {
-  const buyerId = req.user?.id || req.query.buyerId;
-  if (!buyerId) return res.status(401).json(new ApiResponse(401, null, 'Unauthorized or missing buyerId'));
+  const { buyerId, stellarWallet } = req.query;
+  const authUserId = req.user?.id;
+  
+  let finalBuyerId = authUserId || buyerId;
+
+  if (!finalBuyerId && stellarWallet) {
+    const user = await prisma.user.findUnique({ where: { stellarWallet: String(stellarWallet) } });
+    if (user) finalBuyerId = user.id;
+  }
+
+  if (!finalBuyerId) return res.status(401).json(new ApiResponse(401, null, 'Unauthorized or missing buyer identification'));
 
   const orders = await prisma.order.findMany({
-    where: { buyerId: String(buyerId) },
+    where: { buyerId: String(finalBuyerId) },
     include: {
       product: { include: { supplier: { select: { name: true, location: true, trustScore: true } } } }
     },
     orderBy: { createdAt: 'desc' }
   });
 
-  res.json(new ApiResponse(200, orders, 'Orders fetched successfully'));
+  return res.json(new ApiResponse(200, orders, 'Orders fetched successfully'));
 };
 
 export const getOrderStatus = async (req: any, res: Response) => {
@@ -198,11 +226,11 @@ export const scanQrHandshake = async (req: Request, res: Response) => {
 
 export const getPublicProof = async (req: Request, res: Response) => {
   const order = await prisma.order.findUnique({
-    where: { id: req.params.id },
+    where: { id: String(req.params.id) },
     include: { product: { include: { supplier: true } } }
   });
   if (!order || !order.deliveryCertCid) return res.status(404).json(new ApiResponse(404, null, 'Public proof not found'));
-  res.json(new ApiResponse(200, {
+  return res.json(new ApiResponse(200, {
     orderId: order.id,
     productTitle: order.product.title,
     supplierName: order.product.supplier.name,

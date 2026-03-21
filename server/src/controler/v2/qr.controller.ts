@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
-import { randomBytes, createHash } from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
+import { randomBytes, createHash, randomUUID as uuidv4 } from 'crypto';
 import jwt from 'jsonwebtoken';
 import QRCodeLib from 'qrcode';
 import geoip from 'geoip-lite';
@@ -177,7 +176,7 @@ export const browserScan = async (req: Request, res: Response) => {
   if (!shortCode) throw new ApiError(400, 'shortCode is required');
 
   // 1. Find QR code + check expiry
-  const qrCode = await prisma.qRCode.findUnique({ where: { shortCode } });
+  const qrCode = await prisma.qRCode.findUnique({ where: { shortCode: String(shortCode) } });
   if (!qrCode) throw new ApiError(404, 'QR code not found');
   if (qrCode.isExpired || (qrCode.expiresAt && new Date() > qrCode.expiresAt)) {
     if (!qrCode.isExpired) await prisma.qRCode.update({ where: { id: qrCode.id }, data: { isExpired: true } });
@@ -341,7 +340,7 @@ export const updateScanLocation = async (req: Request, res: Response) => {
   const { scanId } = req.params;
   const body = req.body;
 
-  const scan = await prisma.qRScan.findUnique({ where: { id: scanId } });
+  const scan = await prisma.qRScan.findUnique({ where: { id: String(scanId) } });
   if (!scan || scan.scanSource !== 'BROWSER') throw new ApiError(404, 'Scan not found');
 
   // Only allow location update within 30 seconds of scan creation
@@ -390,7 +389,7 @@ export const machineScan = async (req: MachineRequest, res: Response) => {
   if (!shortCode) throw new ApiError(400, 'Could not extract shortCode from scan data');
 
   // 2. Find QR code
-  const qrCode = await prisma.qRCode.findUnique({ where: { shortCode } });
+  const qrCode = await prisma.qRCode.findUnique({ where: { shortCode: String(shortCode) } });
   if (!qrCode) throw new ApiError(404, 'QR code not found');
 
   // 3. Resolve IP geolocation
@@ -481,7 +480,7 @@ export const getJourney = async (req: Request, res: Response) => {
   if (cached) return res.json(new ApiResponse(200, cached, 'Journey fetched (cached)'));
 
   const qrCode = await prisma.qRCode.findUnique({
-    where: { shortCode },
+    where: { shortCode: String(shortCode) },
     include: {
       order: {
         select: {
@@ -569,7 +568,7 @@ export const getMapData = async (req: Request, res: Response) => {
   if (cached) return res.json(new ApiResponse(200, cached, 'Map data (cached)'));
 
   const scans = await prisma.qRScan.findMany({
-    where: { qrCode: { shortCode }, resolvedLat: { not: null } },
+    where: { qrCode: { shortCode: String(shortCode) }, resolvedLat: { not: null } },
     orderBy: { scanNumber: 'asc' },
     select: {
       scanNumber: true,
@@ -600,7 +599,7 @@ export const getCertificate = async (req: Request, res: Response) => {
   const { shortCode } = req.params;
 
   const qrCode = await prisma.qRCode.findUnique({
-    where: { shortCode },
+    where: { shortCode: String(shortCode) },
     include: {
       order: {
         select: {
@@ -700,7 +699,7 @@ export const resolveQR = async (req: Request, res: Response) => {
   let qrCode = await cacheGet<any>(cacheKey);
   if (!qrCode) {
     qrCode = await prisma.qRCode.findUnique({
-      where: { shortCode },
+      where: { shortCode: String(shortCode) },
       include: {
         order: {
           select: {
@@ -781,7 +780,7 @@ export const getMachineData = async (req: Request, res: Response) => {
   if (cached) return res.json(cached);
 
   const qrCode = await prisma.qRCode.findUnique({
-    where: { shortCode },
+    where: { shortCode: String(shortCode) },
     include: {
       order: {
         select: {
@@ -849,7 +848,7 @@ export const verifyScanToken = async (req: Request, res: Response) => {
   if (!scanToken) throw new ApiError(400, 'scanToken is required');
 
   // 1. Find the scan
-  const scan = await prisma.qRScan.findUnique({ where: { id: scanId } });
+  const scan = await prisma.qRScan.findUnique({ where: { id: String(scanId) } });
   if (!scan) throw new ApiError(404, 'Scan not found');
 
   // 2. Check if already used
@@ -868,7 +867,7 @@ export const verifyScanToken = async (req: Request, res: Response) => {
 
   // 5. Mark as used
   await prisma.qRScan.update({
-    where: { id: scanId },
+    where: { id: String(scanId) },
     data: { scanTokenUsed: true },
   });
 

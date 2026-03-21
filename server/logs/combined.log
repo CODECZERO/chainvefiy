@@ -147,3 +147,210 @@
 {"duration":"2ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /health","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-19T05:06:07.475Z","url":"/health"}
 {"duration":"1ms","ip":"::ffff:127.0.0.1","level":"warn","message":"Client error","method":"GET","service":"aidbridge-server","status":404,"timestamp":"2026-03-19T05:06:07.484Z","url":"/does-not-exist"}
 {"duration":"12ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/test/delay?ms=10","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-19T05:06:07.503Z","url":"/api/test/delay?ms=10"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T13:28:14.794Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:28:14.937Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:28:14.937Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T13:28:14.938Z"}
+{"error":{},"level":"error","message":"Database check failed","service":"aidbridge-server","timestamp":"2026-03-21T13:28:15.690Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T13:28:15.697Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T13:28:15.698Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T13:28:15.698Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T13:28:15.699Z"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T13:30:26.752Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:30:26.914Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:30:26.915Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T13:30:26.916Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T13:30:33.627Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T13:30:33.632Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T13:30:33.632Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T13:30:33.633Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T13:30:33.633Z"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T13:34:00.233Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:34:00.324Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:34:00.324Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T13:34:00.324Z"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T13:34:00.652Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:34:00.782Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:34:00.783Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T13:34:00.783Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T13:34:07.814Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T13:34:07.821Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T13:34:07.821Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T13:34:07.821Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T13:34:07.822Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T13:34:08.870Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T13:34:08.874Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T13:34:08.874Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T13:34:08.874Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T13:34:08.875Z"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T13:41:02.652Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:41:02.715Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:41:02.716Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T13:41:02.716Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T13:41:03.867Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T13:41:03.869Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T13:41:03.870Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T13:41:03.870Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T13:41:03.870Z"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T13:42:04.356Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:42:04.421Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:42:04.421Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T13:42:04.421Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T13:42:05.974Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T13:42:05.975Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T13:42:05.975Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T13:42:05.975Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T13:42:05.976Z"}
+{"duration":"7ms","ip":"::ffff:127.0.0.1","level":"warn","message":"Client error","method":"GET","service":"aidbridge-server","status":401,"timestamp":"2026-03-21T13:44:03.189Z","url":"/api/user/me"}
+{"duration":"903ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/products?status=VERIFIED","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T13:44:04.093Z","url":"/api/products?status=VERIFIED"}
+{"duration":"1553ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T13:44:04.799Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:44:04.807Z","url":"/api/rates/usdc"}
+{"duration":"0ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:44:04.818Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:45:03.221Z","url":"/api/rates/usdc"}
+{"duration":"2ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:45:52.194Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:45:52.205Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:45:52.212Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:45:52.216Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:46:52.206Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:47:52.359Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:48:52.193Z","url":"/api/rates/usdc"}
+{"duration":"1571ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T13:49:53.763Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:50:52.198Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"warn","message":"Client error","method":"GET","service":"aidbridge-server","status":401,"timestamp":"2026-03-21T13:50:54.435Z","url":"/api/notifications/unread-count"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"warn","message":"Client error","method":"GET","service":"aidbridge-server","status":401,"timestamp":"2026-03-21T13:50:54.439Z","url":"/api/notifications/unread-count"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:51:46.805Z","url":"/api/rates/usdc"}
+{"duration":"0ms","ip":"::ffff:127.0.0.1","level":"warn","message":"Client error","method":"GET","service":"aidbridge-server","status":401,"timestamp":"2026-03-21T13:51:46.808Z","url":"/api/notifications/unread-count"}
+{"duration":"0ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:51:48.349Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"warn","message":"Client error","method":"GET","service":"aidbridge-server","status":401,"timestamp":"2026-03-21T13:51:48.350Z","url":"/api/notifications/unread-count"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:52:40.706Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"warn","message":"Client error","method":"GET","service":"aidbridge-server","status":401,"timestamp":"2026-03-21T13:52:40.718Z","url":"/api/user/me"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:52:41.016Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"warn","message":"Client error","method":"GET","service":"aidbridge-server","status":401,"timestamp":"2026-03-21T13:52:41.018Z","url":"/api/notifications/unread-count"}
+{"duration":"0ms","ip":"::ffff:127.0.0.1","level":"warn","message":"Client error","method":"GET","service":"aidbridge-server","status":401,"timestamp":"2026-03-21T13:52:41.019Z","url":"/api/notifications/unread-count"}
+{"duration":"0ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:52:41.022Z","url":"/api/rates/usdc"}
+{"duration":"0ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:53:40.236Z","url":"/api/rates/usdc"}
+{"duration":"0ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:54:41.216Z","url":"/api/rates/usdc"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T13:55:11.735Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:55:11.804Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:55:11.804Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T13:55:11.804Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T13:55:18.026Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T13:55:18.027Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T13:55:18.027Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T13:55:18.027Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T13:55:18.028Z"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T13:55:34.006Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:55:34.117Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:55:34.117Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T13:55:34.117Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T13:55:36.807Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T13:55:36.808Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T13:55:36.809Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T13:55:36.809Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T13:55:36.809Z"}
+{"duration":"2788ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T13:55:44.041Z","url":"/api/rates/usdc"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T13:55:58.429Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:55:58.494Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T13:55:58.494Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T13:55:58.494Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T13:55:59.910Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T13:55:59.912Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T13:55:59.913Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T13:55:59.913Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T13:55:59.913Z"}
+{"duration":"1904ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:56:43.810Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:57:42.321Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:58:42.359Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T13:59:42.415Z","url":"/api/rates/usdc"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T14:00:02.882Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:00:03.001Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:00:03.001Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T14:00:03.002Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T14:00:05.218Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T14:00:05.220Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T14:00:05.220Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T14:00:05.220Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T14:00:05.220Z"}
+{"duration":"1148ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T14:00:43.576Z","url":"/api/rates/usdc"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T14:01:29.846Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:01:29.968Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:01:29.969Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T14:01:29.969Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T14:01:31.951Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T14:01:31.952Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T14:01:31.952Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T14:01:31.952Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T14:01:31.952Z"}
+{"duration":"1091ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T14:01:44.593Z","url":"/api/rates/usdc"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T14:02:28.734Z"}
+{"duration":"7ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T14:02:28.774Z","url":"/"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /health","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T14:02:28.787Z","url":"/health"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"warn","message":"Client error","method":"GET","service":"aidbridge-server","status":404,"timestamp":"2026-03-21T14:02:28.796Z","url":"/does-not-exist"}
+{"duration":"11ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/test/delay?ms=10","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T14:02:28.816Z","url":"/api/test/delay?ms=10"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T14:02:43.792Z","url":"/api/rates/usdc"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T14:03:00.552Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:03:00.624Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:03:00.624Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T14:03:00.624Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T14:03:01.517Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T14:03:01.518Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T14:03:01.518Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T14:03:01.518Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T14:03:01.518Z"}
+{"duration":"1112ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T14:03:45.294Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T14:04:44.727Z","url":"/api/rates/usdc"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T14:05:15.621Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:05:15.687Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:05:15.687Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T14:05:15.687Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T14:05:16.517Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T14:05:16.518Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T14:05:16.518Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T14:05:16.518Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T14:05:16.518Z"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T14:05:44.803Z","url":"/api/rates/usdc"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T14:06:08.454Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:06:08.551Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:06:08.551Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T14:06:08.551Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T14:06:10.770Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T14:06:10.773Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T14:06:10.773Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T14:06:10.773Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T14:06:10.773Z"}
+{"duration":"3ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T14:06:45.671Z","url":"/api/rates/usdc"}
+{"duration":"3ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T14:07:45.819Z","url":"/api/rates/usdc"}
+{"duration":"749ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T14:08:46.647Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T14:09:46.003Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T14:10:46.024Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::1","level":"http","message":"GET /health","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T14:10:51.416Z","url":"/health"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T14:11:23.065Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:11:23.143Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:11:23.144Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T14:11:23.144Z"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app","service":"aidbridge-server","timestamp":"2026-03-21T14:11:23.066Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:11:23.146Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:11:23.147Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T14:11:23.147Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T14:11:26.692Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T14:11:26.692Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T14:11:26.694Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T14:11:26.694Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T14:11:26.694Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T14:11:26.694Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T14:11:26.694Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T14:11:26.694Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T14:11:26.694Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T14:11:26.694Z"}
+{"duration":"528ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T14:11:47.242Z","url":"/api/rates/usdc"}
+{"duration":"1ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":304,"timestamp":"2026-03-21T14:12:46.814Z","url":"/api/rates/usdc"}
+{"level":"info","message":"[CORS] Allowed Origins: https://soul-society-three.vercel.app, http://localhost:3000, http://localhost:3001","service":"aidbridge-server","timestamp":"2026-03-21T14:13:21.899Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:13:22.010Z"}
+{"level":"info","message":"PostgreSQL connected via Prisma","service":"aidbridge-server","timestamp":"2026-03-21T14:13:22.011Z"}
+{"level":"info","message":"Redis client initialized (ioredis)","service":"aidbridge-server","timestamp":"2026-03-21T14:13:22.011Z"}
+{"level":"info","message":"Database connection verified","service":"aidbridge-server","timestamp":"2026-03-21T14:13:23.368Z"}
+{"level":"info","message":"Pramanik server running on port 8000","service":"aidbridge-server","timestamp":"2026-03-21T14:13:23.370Z"}
+{"level":"info","message":"Environment: development","service":"aidbridge-server","timestamp":"2026-03-21T14:13:23.371Z"}
+{"level":"info","message":"WhatsApp webhook: POST /api/whatsapp/webhook","service":"aidbridge-server","timestamp":"2026-03-21T14:13:23.371Z"}
+{"level":"info","message":"[DeliveryJob] Auto-complete job started","service":"aidbridge-server","timestamp":"2026-03-21T14:13:23.371Z"}
+{"duration":"4735ms","ip":"::ffff:127.0.0.1","level":"http","message":"GET /api/rates/usdc","method":"GET","service":"aidbridge-server","status":200,"timestamp":"2026-03-21T14:13:51.618Z","url":"/api/rates/usdc"}

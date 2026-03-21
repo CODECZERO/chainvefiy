@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ShieldCheck, ArrowRight, CheckCircle2, Loader2 } from "lucide-react"
 import { useSelector } from "react-redux"
 import type { RootState } from "@/lib/redux/store"
+import { useWallet } from "@/lib/wallet-context"
 
 export function PaymentModal({
   isOpen,
@@ -18,6 +19,7 @@ export function PaymentModal({
   product: { id: string; title: string; priceInr: number; priceUsdc: number }
 }) {
   const { user } = useSelector((s: RootState) => s.userAuth)
+  const { publicKey } = useWallet()
   const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
 
   const [currency, setCurrency] = React.useState<"USDC" | "XLM" | "BTC" | "ETH">("USDC")
@@ -65,14 +67,15 @@ export function PaymentModal({
     sourceAmount?: number
     escrowTxId: string
   }) => {
-    if (!user?.id) throw new Error("Login required")
+    if (!user?.id && !publicKey) throw new Error("Login or wallet connection required")
     const res = await fetch(`${api}/orders`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         productId: product.id,
-        buyerId: user.id,
+        buyerId: user?.id,
+        stellarWallet: publicKey,
         quantity: 1,
         paymentMethod: opts.paymentMethod,
         sourceCurrency: opts.sourceCurrency,
@@ -228,10 +231,14 @@ export function PaymentModal({
             </div>
 
             <div className="grid gap-2">
-              <Button disabled={!quote || paying !== null || !user?.id} className="w-full" onClick={handleWalletPay}>
+              <Button disabled={!quote || paying !== null || (!user?.id && !publicKey)} className="w-full" onClick={handleWalletPay}>
                 {paying === "wallet" ? "Processing..." : "Pay with Stellar Wallet"}
               </Button>
-              {!user?.id && <div className="text-xs text-muted-foreground">Sign in to complete checkout.</div>}
+              {(!user?.id && !publicKey) && (
+                <div className="text-xs text-muted-foreground text-center">
+                  Please connect your wallet to complete checkout.
+                </div>
+              )}
             </div>
           </>
         )}

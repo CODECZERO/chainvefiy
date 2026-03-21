@@ -8,6 +8,9 @@ import { describe, it, expect, beforeAll, afterAll, jest } from '@jest/globals';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 process.env.NODE_ENV = 'test';
 process.env.ATS = 'test_access_secret_12345';
@@ -68,20 +71,22 @@ describe.skip(!HAS_DATABASE_URL)('Health Check', () => {
 });
 
 describe.skip(!HAS_DATABASE_URL)('User API', () => {
-    it('POST /api/user/signup → creates user in PostgreSQL', async () => {
+    it('POST /api/user/signup → creates supplier in PostgreSQL', async () => {
         const res = await request(app).post('/api/user/signup').send({
-            email: 'buyer@test.com',
+            email: 'supplier_new@test.com',
             password: 'password123',
-            role: 'BUYER'
+            role: 'SUPPLIER',
+            name: 'New Supplier',
+            whatsappNumber: '+19998887777'
         });
         expect([200, 201]).toContain(res.status);
-        const userCount = await prisma.user.count({ where: { email: 'buyer@test.com' } });
+        const userCount = await prisma.user.count({ where: { email: 'supplier_new@test.com' } });
         expect(userCount).toBe(1);
     });
 
-    it('POST /api/user/login → returns JWT', async () => {
+    it('POST /api/user/login → returns JWT for supplier', async () => {
         const res = await request(app).post('/api/user/login').send({
-            email: 'buyer@test.com',
+            email: 'supplier_new@test.com',
             password: 'password123'
         });
         expect(res.status).toBe(200);
@@ -138,6 +143,41 @@ describe.skip(!HAS_DATABASE_URL)('Product API', () => {
         expect(res.status).toBe(200);
         const updatedProduct = await prisma.product.findUnique({ where: { id: product?.id } });
         expect(updatedProduct?.voteReal).toBe(1);
+    });
+
+    it('POST /api/orders → placed order via Stellar Wallet (No email login)', async () => {
+        const product = await prisma.product.findFirst();
+        const mockWallet = 'G_MOCK_WALLET_BUYER_123';
+        
+        const res = await request(app)
+            .post('/api/orders')
+            .send({
+                productId: product?.id,
+                stellarWallet: mockWallet,
+                quantity: 1,
+                paymentMethod: 'STELLAR_USDC',
+                sourceCurrency: 'XLM',
+                escrowTxId: 'mock_escrow_tx_999'
+            });
+
+        expect(res.status).toBe(201);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.status).toBe('PAID');
+        
+        // Verify user was created/linked
+        const buyerUser = await prisma.user.findUnique({ where: { stellarWallet: mockWallet } });
+        expect(buyerUser).toBeDefined();
+        expect(buyerUser?.role).toBe('BUYER');
+    });
+
+    it('GET /api/orders/my-orders?stellarWallet=... → fetches wallet orders', async () => {
+        const mockWallet = 'G_MOCK_WALLET_BUYER_123';
+        const res = await request(app).get(`/api/orders/my-orders?stellarWallet=${mockWallet}`);
+        
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.length).toBeGreaterThan(0);
+        expect(res.body.data[0].status).toBe('PAID');
     });
 });
 

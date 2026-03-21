@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useSelector, useDispatch } from "react-redux"
 import type { RootState, AppDispatch } from "@/lib/redux/store"
 import { logoutUser } from "@/lib/redux/slices/user-auth-slice"
+import { disconnectWallet } from "@/lib/redux/slices/wallet-slice"
 import { Button } from "@/components/ui/button"
 import { Menu, X, ShieldCheck, MessageCircle, LogOut, User, ChevronDown, Lock } from "lucide-react"
 import dynamic from "next/dynamic"
@@ -41,7 +42,7 @@ export function Header() {
     { href: "/leaderboard", label: "Leaderboard" },
     { href: "/verify", label: "Verify", requiresAuth: true },
     { href: "/bounty-board", label: "Bounties", requiresAuth: true },
-    ...(isAuthenticated && user?.role === "SUPPLIER" ? [{ href: "/seller-dashboard", label: "Sell" }] : []),
+    ...(isAuthenticated && user?.role === "SUPPLIER" && !isConnected ? [{ href: "/seller-dashboard", label: "Sell" }] : []),
   ]
 
 
@@ -54,7 +55,7 @@ export function Header() {
   return (
     <>
       <USDCPriceTicker />
-      {showGuestBar && !isAuthenticated && (
+      {showGuestBar && !isUserActive && (
         <div className="border-b border-border bg-background/90 backdrop-blur">
           <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-3">
             <div className="text-sm text-muted-foreground">
@@ -62,7 +63,7 @@ export function Header() {
             </div>
             <div className="ml-auto flex items-center gap-2">
               <Button size="sm" className="h-8 rounded-lg" onClick={() => setAuthModalOpen(true)}>
-                Sign in
+                Supplier Login
               </Button>
               <button
                 className="text-xs text-muted-foreground hover:text-foreground"
@@ -90,7 +91,7 @@ export function Header() {
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-0.5">
             {NAV.map((n) =>
-              n.requiresAuth && !isAuthenticated ? (
+              n.requiresAuth && !isUserActive ? (
                 <button
                   key={n.href}
                   type="button"
@@ -114,7 +115,7 @@ export function Header() {
 
           {/* Right side */}
           <div className="hidden md:flex items-center gap-2.5">
-            {isAuthenticated ? (
+            {isAuthenticated && !isConnected ? (
               user?.role === 'SUPPLIER' ? (
                 <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=NEW`} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" className="rounded-xl h-9 text-sm font-medium transition-all">
@@ -129,10 +130,10 @@ export function Header() {
                   </Button>
                 </a>
               )
-            ) : (
+            ) : isConnected ? null : (
               <Button onClick={() => setAuthModalOpen(true)}
                 variant="outline" className="rounded-xl h-9 text-sm font-medium transition-all">
-                <MessageCircle className="w-3.5 h-3.5 mr-1.5" /> Sign In to Sell
+                <Lock className="w-3.5 h-3.5 mr-1.5" /> Supplier Login
               </Button>
             )}
 
@@ -163,17 +164,18 @@ export function Header() {
                   </div>
                 )}
               </div>
-            ) : (
-              <Button onClick={() => setAuthModalOpen(true)}
-                variant="outline" className="rounded-xl h-9 text-sm font-medium transition-all">
-                Sign In
-              </Button>
-            )}
+            ) : null}
 
             {isConnected && publicKey ? (
-              <div className="flex items-center gap-2 bg-accent border border-border rounded-xl px-3 py-2 text-sm">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
-                <span className="text-muted-foreground font-mono text-xs">{publicKey.slice(0, 6)}…{publicKey.slice(-4)}</span>
+              <div className="flex items-center gap-1.5 bg-accent border border-border rounded-xl px-2 py-1.5">
+                <div className="flex items-center gap-2 px-1.5 py-0.5">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+                  <span className="text-muted-foreground font-mono text-xs">{publicKey.slice(0, 6)}…{publicKey.slice(-4)}</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" 
+                  onClick={() => dispatch(disconnectWallet())} title="Disconnect Wallet">
+                  <LogOut className="w-3.5 h-3.5" />
+                </Button>
               </div>
             ) : (
               <Button onClick={() => setWalletSelectorOpen(true)} className="rounded-xl h-9 text-sm font-medium transition-all">
@@ -192,7 +194,7 @@ export function Header() {
         {mobileOpen && (
           <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-xl px-4 py-4 space-y-1">
             {NAV.map((n) =>
-              n.requiresAuth && !isAuthenticated ? (
+              n.requiresAuth && !isUserActive ? (
                 <button
                   key={n.href}
                   type="button"
@@ -219,14 +221,28 @@ export function Header() {
               ),
             )}
             <div className="pt-3 space-y-2">
-              <Button onClick={() => { setAuthModalOpen(true); setMobileOpen(false) }}
-                variant="outline" className="w-full rounded-2xl h-11">
-                {isAuthenticated ? "Dashboard" : "Sign In"}
-              </Button>
-              <Button onClick={() => { setWalletSelectorOpen(true); setMobileOpen(false) }}
-                className="w-full rounded-2xl h-11">
-                Connect Wallet
-              </Button>
+              {isUserActive ? (
+                <Link href="/seller-dashboard" onClick={() => setMobileOpen(false)} className="block w-full">
+                  <Button variant="outline" className="w-full rounded-2xl h-11">
+                    Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Button onClick={() => { setAuthModalOpen(true); setMobileOpen(false) }}
+                  variant="outline" className="w-full rounded-2xl h-11">
+                  Supplier Login
+                </Button>
+              )}
+              {isConnected ? (
+                <Button onClick={() => { dispatch(disconnectWallet()); setMobileOpen(false) }} variant="ghost" className="w-full rounded-2xl h-11 text-destructive hover:bg-destructive/10">
+                  Disconnect Wallet
+                </Button>
+              ) : (
+                <Button onClick={() => { setWalletSelectorOpen(true); setMobileOpen(false) }}
+                  className="w-full rounded-2xl h-11">
+                  Connect Wallet
+                </Button>
+              )}
             </div>
           </div>
         )}

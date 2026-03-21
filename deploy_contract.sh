@@ -192,16 +192,16 @@ else
     echo -e "${YELLOW}━━━ Reading Contract IDs ━━━${NC}"
 fi
 
-VAULT_ID=$(deploy_or_reuse "Seireitei Vault" "$RELEASE_DIR/seireitei_vault.wasm" "VAULT_CONTRACT_ID")
+VAULT_ID=$(deploy_or_reuse "Product Vault" "$RELEASE_DIR/product_vault.wasm" "VAULT_CONTRACT_ID")
 # CONTRACT_ID is an alias for VAULT_CONTRACT_ID
 [ -n "$VAULT_ID" ] && update_env "CONTRACT_ID" "$VAULT_ID"
 
-REGISTRY_ID=$(deploy_or_reuse "Mission Registry" "$RELEASE_DIR/mission_registry.wasm" "MISSION_REGISTRY_CONTRACT_ID")
+REGISTRY_ID=$(deploy_or_reuse "Product Registry" "$RELEASE_DIR/product_registry.wasm" "MISSION_REGISTRY_CONTRACT_ID")
 ESCROW_ID=$(deploy_or_reuse "Escrow" "$RELEASE_DIR/escrow.wasm" "ESCROW_CONTRACT_ID")
-REIATSU_ID=$(deploy_or_reuse "Reiatsu Token" "$RELEASE_DIR/reiatsu_token.wasm" "REIATSU_TOKEN_CONTRACT_ID")
-SOUL_BADGE_ID=$(deploy_or_reuse "Soul Badge" "$RELEASE_DIR/soul_badge.wasm" "SOUL_BADGE_CONTRACT_ID")
+REIATSU_ID=$(deploy_or_reuse "Trust Token" "$RELEASE_DIR/trust_token.wasm" "REIATSU_TOKEN_CONTRACT_ID")
+SOUL_BADGE_ID=$(deploy_or_reuse "Seller Badge" "$RELEASE_DIR/seller_badge.wasm" "SOUL_BADGE_CONTRACT_ID")
 TREASURY_ID=$(deploy_or_reuse "Treasury" "$RELEASE_DIR/division_treasury.wasm" "TREASURY_CONTRACT_ID")
-SOUL_REAPER_ID=$(deploy_or_reuse "Soul Reaper Registry" "$RELEASE_DIR/soul_reaper_registry.wasm" "SOUL_REAPER_REGISTRY_CONTRACT_ID")
+SOUL_REAPER_ID=$(deploy_or_reuse "Supplier Registry" "$RELEASE_DIR/supplier_registry.wasm" "SOUL_REAPER_REGISTRY_CONTRACT_ID")
 NOTIFICATIONS_ID=$(deploy_or_reuse "Notifications" "$RELEASE_DIR/notifications.wasm" "NOTIFICATIONS_CONTRACT_ID")
 
 # ─── 8. Initialize contracts ──────────────────────────────────────

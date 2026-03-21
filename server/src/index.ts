@@ -17,7 +17,7 @@ const start = async () => {
     try {
       await Promise.race([
         prisma.$executeRaw`SELECT 1`,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('DB check timeout')), 750)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('DB check timeout')), 10000)),
       ]);
       logger.info('Database connection verified');
     } catch (e) {

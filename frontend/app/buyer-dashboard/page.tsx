@@ -18,12 +18,13 @@ export default function BuyerDashboard() {
 
   useEffect(() => {
     async function loadOrders() {
-      if (!user?.id) {
+      if (!user?.id && !publicKey) {
         setLoading(false)
         return
       }
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my-orders?buyerId=${user.id}`);
+        const query = user?.id ? `buyerId=${user.id}` : `stellarWallet=${publicKey}`;
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders/my-orders?${query}`);
         const data = await response.json();
         if (response.ok) {
           setOrders(data.data || [])
@@ -34,14 +35,14 @@ export default function BuyerDashboard() {
       }
     }
     loadOrders()
-  }, [user?.id])
+  }, [user?.id, publicKey])
 
   if (!user?.id && !publicKey) {
      return (
        <div className="min-h-screen bg-background text-foreground">
           <Header />
           <div className="max-w-4xl mx-auto px-4 py-10">
-             <WalletRequirement fallbackMessage="Please login or connect your wallet to view order history." />
+             <WalletRequirement fallbackMessage="Please connect your wallet to view your order history." />
           </div>
        </div>
      );

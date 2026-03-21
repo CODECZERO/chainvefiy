@@ -23,7 +23,8 @@ test.describe('Navigation Flow', () => {
 
     test('should show guest bar when not logged in', async ({ page }) => {
         await page.goto('/', { waitUntil: 'domcontentloaded' });
-        await expect(page.getByText(/browsing as a guest/i).first()).toBeVisible({ timeout: 10000 });
+        // The guest bar or "Supplier Login" button should be present
+        await expect(page.getByRole('button', { name: /Supplier Login/i }).first()).toBeVisible({ timeout: 10000 });
     });
 
     test('guest nav shows public links', async ({ page }) => {
@@ -33,16 +34,16 @@ test.describe('Navigation Flow', () => {
         await expect(page.getByRole('link', { name: /^Leaderboard$/i })).toBeVisible();
     });
 
-    test('guest clicking protected nav opens sign-in modal', async ({ page }) => {
+    test('guest clicking protected nav opens supplier login modal', async ({ page }) => {
         await page.goto('/', { waitUntil: 'domcontentloaded' });
 
         await page.getByRole('button', { name: /Verify/i }).click();
-        await expect(page.getByRole('heading', { name: /Sign in to Pramanik/i })).toBeVisible();
+        await expect(page.getByText(/Supplier Portal/i).first()).toBeVisible();
         await expect(page.getByRole('tab', { name: /Sign in/i })).toBeVisible();
         await page.keyboard.press('Escape');
 
         await page.getByRole('button', { name: /Bounties/i }).click();
-        await expect(page.getByRole('heading', { name: /Sign in to Pramanik/i })).toBeVisible();
+        await expect(page.getByText(/Supplier Portal/i).first()).toBeVisible();
     });
 
     test('protected routes should redirect when unauthenticated', async ({ page }) => {

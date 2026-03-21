@@ -101,9 +101,9 @@ export const getSupplierAnalytics = async (req: Request, res: Response) => {
   for (const qr of qrCodes) {
     if (qr.productId && qr.product) {
       if (!productScans[qr.productId]) productScans[qr.productId] = { title: qr.product.title, scans: 0 };
-      productScans[qr.productId].scans += qr.totalScans;
-      if (productScans[qr.productId].scans > mostScannedProduct.scans) {
-        mostScannedProduct = productScans[qr.productId];
+      productScans[qr.productId]!.scans += qr.totalScans;
+      if (productScans[qr.productId]!.scans > mostScannedProduct.scans) {
+        mostScannedProduct = productScans[qr.productId]!;
       }
     }
   }

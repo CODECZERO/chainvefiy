@@ -25,7 +25,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
     password: "",
     name: "",
     whatsappNumber: "",
-    role: "BUYER" as "BUYER" | "SUPPLIER",
+    role: "SUPPLIER" as "SUPPLIER",
   })
 
   useEffect(() => {
@@ -51,12 +51,15 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-primary" />
-            Sign in to Pramanik
+          <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+            </div>
+            Supplier Portal
           </DialogTitle>
-          <DialogDescription>
-            Suppliers sign in to manage listings. Buyers can browse freely and connect a wallet when paying.
+          <DialogDescription className="pt-1">
+            Access your supplier dashboard, manage products, and verify bulk shipments. 
+            <span className="block mt-1 font-medium text-foreground">Buyers: Connect your wallet on the main page to verify products.</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -70,30 +73,21 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === "signup" && (
             <>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={form.role === "BUYER" ? "default" : "outline"}
-                  onClick={() => setForm((f) => ({ ...f, role: "BUYER" }))}
-                >
-                  Buyer
-                </Button>
-                <Button
-                  type="button"
-                  variant={form.role === "SUPPLIER" ? "default" : "outline"}
-                  onClick={() => setForm((f) => ({ ...f, role: "SUPPLIER" }))}
-                >
-                  Supplier
-                </Button>
+              <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 mb-2 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-foreground">Register as Supplier</div>
+                  <div className="text-xs text-muted-foreground line-clamp-2">Join our network of verified manufacturers and distributors.</div>
+                </div>
               </div>
-              <Input placeholder="Full name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-              {form.role === "SUPPLIER" && (
-                <Input
-                  placeholder="WhatsApp number (e.g. +919876543210)"
-                  value={form.whatsappNumber}
-                  onChange={(e) => setForm((f) => ({ ...f, whatsappNumber: e.target.value }))}
-                />
-              )}
+              <Input placeholder="Full name or Company name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              <Input
+                placeholder="WhatsApp number (e.g. +919876543210)"
+                value={form.whatsappNumber}
+                onChange={(e) => setForm((f) => ({ ...f, whatsappNumber: e.target.value }))}
+              />
             </>
           )}
 
@@ -106,10 +100,10 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
             {isLoading ? "Loading..." : mode === "login" ? "Sign in" : "Create account"}
           </Button>
 
-          <div className="pt-2">
+          <div className="pt-2 border-t border-border mt-4">
             <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=NEW`} target="_blank" rel="noopener noreferrer" className="block">
-              <Button variant="outline" className="w-full">
-                <MessageCircle className="w-4 h-4 mr-2" /> Sell via WhatsApp
+              <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-primary">
+                <MessageCircle className="w-3.5 h-3.5 mr-2" /> Can't access? Request help via WhatsApp
               </Button>
             </a>
           </div>
