@@ -14,12 +14,22 @@ export function ipfsImageUrl(cid: string | undefined | null): string {
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/")) return trimmed;
 
   // Format gateway URL - ensure it has a protocol
-  let gateway = PINATA_GATEWAY;
+  let gateway = String(PINATA_GATEWAY || "https://gateway.pinata.cloud");
   if (gateway && !gateway.startsWith('http')) {
     gateway = `https://${gateway}`;
   }
 
+  // Support for restricted gateways via token
+  const token = process.env.NEXT_PUBLIC_PINATA_GATEWAY_TOKEN;
+  const tokenQuery = (token && typeof token === "string") ? `?pinataGatewayToken=${token}` : "";
+
   // Clean the CID and construct URL
-  const cleanCid = trimmed.replace("ipfs://", "").replace(/^\/ipfs\//, "");
-  return `${gateway}/ipfs/${cleanCid}`;
+  const cleanCid = String(trimmed).replace("ipfs://", "").replace(/^\/ipfs\//, "");
+  
+  // Try dedicated gateway first, but allow easy fallback or use public if needed
+  if (!gateway || gateway.includes("gateway.pinata.cloud")) {
+    return `https://gateway.pinata.cloud/ipfs/${cleanCid}${tokenQuery}`;
+  }
+
+  return `${gateway}/ipfs/${cleanCid}${tokenQuery}`;
 }

@@ -22,8 +22,7 @@ export function AuthGuard({
 
   const isAllowed =
     isAuthenticated &&
-    (!requireRole || user?.role === requireRole) &&
-    (requireRole !== "SUPPLIER" || Boolean(user?.supplierProfile?.id))
+    (!requireRole || user?.role === requireRole)
 
   React.useEffect(() => {
     if (isLoading) return

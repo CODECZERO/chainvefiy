@@ -4,6 +4,18 @@ import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Trophy, Star, ShieldCheck, TrendingUp, Medal } from "lucide-react"
 
+const RANK_STYLES: Record<number, string> = {
+  1: "bg-amber-500/10 border-amber-500/20 shadow-lg shadow-amber-500/5",
+  2: "bg-slate-300/10 border-slate-300/20 shadow-lg shadow-slate-300/5",
+  3: "bg-orange-600/10 border-orange-600/20 shadow-lg shadow-orange-600/5",
+}
+
+const RANK_ICON: Record<number, React.ReactNode> = {
+  1: <Trophy className="w-6 h-6 text-amber-400" />,
+  2: <Medal className="w-6 h-6 text-slate-300" />,
+  3: <Medal className="w-6 h-6 text-orange-600" />,
+}
+
 export default function LeaderboardPage() {
   const [leaders, setLeaders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -13,7 +25,10 @@ export default function LeaderboardPage() {
   useEffect(() => {
     setLoading(true)
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/community/leaderboard`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok || r.status === 204) return { data: [] }
+        return r.json()
+      })
       .then(res => {
         if (res.data?.length) {
           const mapped = res.data.map((l: any, i: number) => ({
@@ -34,7 +49,10 @@ export default function LeaderboardPage() {
 
     // Global Stats for the top cards
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/stats`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok || r.status === 204) return { data: null }
+        return r.json()
+      })
       .then(res => {
         if (res.data) {
           setStats({

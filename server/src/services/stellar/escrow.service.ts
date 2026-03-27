@@ -7,7 +7,9 @@ import {
     Keypair,
     TransactionBuilder,
     Networks,
-    TimeoutInfinite
+    TimeoutInfinite,
+    Asset,
+    Operation
 } from '@stellar/stellar-sdk';
 import { server, STACK_ADMIN_SECRET } from './smartContract.handler.stellar.js';
 
@@ -34,28 +36,56 @@ export class EscrowService {
         totalAmount: number,
         lockedAmount: number,
         taskId: string,
-        deadline: number
+        deadline: number,
+        asset?: string
     ) {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
         const sourceAccount = await this.server.getAccount(buyerPublicKey);
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
+        // Determine destination and asset
+        const isXlm = asset === 'XLM';
+        const stellarAsset = isXlm 
+            ? Asset.native() 
+            : new Asset('USDC', 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN'); // Standard Testnet USDC issuer
+
+        const directAmount = (totalAmount - lockedAmount).toFixed(7);
+        const lockedAmountStr = lockedAmount.toFixed(7);
+
+        const txBuilder = new TransactionBuilder(sourceAccount, {
+            fee: "1000", // Slightly higher fee for multi-op tx
             networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'create_escrow',
-                new Address(buyerPublicKey).toScVal(),
-                new Address(supplierPublicKey).toScVal(),
-                nativeToScVal(BigInt(Math.round(totalAmount)), { type: 'i128' }),
-                nativeToScVal(BigInt(Math.round(lockedAmount)), { type: 'i128' }),
-                nativeToScVal(taskId, { type: 'string' }),
-                nativeToScVal(BigInt(deadline), { type: 'u64' })
-            ))
-            .setTimeout(180)
-            .build();
+        });
+
+        // 1. Direct payment to supplier (50%)
+        if (Number(directAmount) > 0) {
+            txBuilder.addOperation(Operation.payment({
+                destination: supplierPublicKey,
+                asset: stellarAsset,
+                amount: directAmount
+            }));
+        }
+
+        // 2. Escrow payment to contract (50%)
+        txBuilder.addOperation(Operation.payment({
+            destination: ESCROW_CONTRACT_ID,
+            asset: stellarAsset,
+            amount: lockedAmountStr
+        }));
+
+        // 3. Contract call to record the escrow
+        txBuilder.addOperation(contract.call(
+            'create_escrow',
+            new Address(buyerPublicKey).toScVal(),
+            new Address(supplierPublicKey).toScVal(),
+            nativeToScVal(BigInt(Math.round(totalAmount * 10000000)), { type: 'i128' }),
+            nativeToScVal(BigInt(Math.round(lockedAmount * 10000000)), { type: 'i128' }),
+            nativeToScVal(taskId, { type: 'string' }),
+            nativeToScVal(BigInt(deadline), { type: 'u64' })
+        ));
+
+        const tx = txBuilder.setTimeout(180).build();
 
         try {
             const preparedTx = await this.server.prepareTransaction(tx);

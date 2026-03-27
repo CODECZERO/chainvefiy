@@ -4,18 +4,26 @@ import Redis from 'ioredis';
 // Graceful fallback: if Redis is unavailable, all operations silently return null/void
 // so the app keeps working with direct Postgres queries.
 
+const globalForRedis = globalThis as unknown as { redis?: Redis };
+
 let redis: Redis | null = null;
 
-try {
+if (process.env.NODE_ENV === 'test' || process.env.DISABLE_REDIS === 'true') {
+  redis = null;
+} else {
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-  // Upstash TLS uses `redis://...` with `--tls` OR `rediss://...`.
   const useTls = redisUrl.startsWith('rediss://') || process.env.REDIS_TLS === 'true';
 
-  redis = new Redis(redisUrl, {
-    maxRetriesPerRequest: 1,
+  redis = globalForRedis.redis || new Redis(redisUrl, {
+    maxRetriesPerRequest: null, // ioredis will keep trying to reconnect
     retryStrategy(times) {
-      if (times > 3) return null; // Stop retrying after 3 attempts
-      return Math.min(times * 200, 2000);
+      const delay = Math.min(times * 100, 3000);
+      return delay;
+    },
+    reconnectOnError(err) {
+      const targetError = 'READONLY';
+      if (err.message.includes(targetError)) return true;
+      return false;
     },
     lazyConnect: true,
     ...(useTls ? { tls: {} } : {}),
@@ -29,14 +37,12 @@ try {
     console.log('[REDIS] Connected successfully');
   });
 
-  // Attempt connection
+  if (process.env.NODE_ENV !== 'production') globalForRedis.redis = redis;
+
+  // Attempt connection without blocking main thread
   redis.connect().catch(() => {
     console.warn('[REDIS] Initial connection failed — running without cache');
-    redis = null;
   });
-} catch (err) {
-  console.warn('[REDIS] Failed to initialize — running without cache');
-  redis = null;
 }
 
 // ─── Cache Helpers ───

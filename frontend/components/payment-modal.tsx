@@ -13,26 +13,30 @@ export function PaymentModal({
   isOpen,
   onClose,
   product,
+  shippingDetails,
+  initialCurrency = "USDC",
 }: {
   isOpen: boolean
   onClose: () => void
-  product: { id: string; title: string; priceInr: number; priceUsdc: number }
+  product: { id: string; title: string; priceInr: number; priceUsdc: number; supplier?: { stellarWallet?: string } }
+  shippingDetails?: any
+  initialCurrency?: "USDC" | "XLM" | "BTC" | "ETH"
 }) {
   const { user } = useSelector((s: RootState) => s.userAuth)
   const { publicKey } = useWallet()
   const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
 
-  const [currency, setCurrency] = React.useState<"USDC" | "XLM" | "BTC" | "ETH">("USDC")
+  const [currency, setCurrency] = React.useState<"USDC" | "XLM" | "BTC" | "ETH">(initialCurrency)
   const [quote, setQuote] = React.useState<any>(null)
   const [loadingQuote, setLoadingQuote] = React.useState(false)
   const [paying, setPaying] = React.useState<null | "wallet" | "upi">(null)
-  const [success, setSuccess] = React.useState<null | { txHash: string; orderId?: string }>(null)
+  const [success, setSuccess] = React.useState<null | { txHash: string; orderId?: string; qrCodeUrl?: string }>(null)
 
   const targetUsdc = Number(product.priceUsdc || 0)
 
   React.useEffect(() => {
     if (!isOpen) {
-      setCurrency("USDC")
+      setCurrency(initialCurrency)
       setQuote(null)
       setLoadingQuote(false)
       setPaying(null)
@@ -62,7 +66,7 @@ export function PaymentModal({
   }, [api, currency, isOpen, targetUsdc])
 
   const createOrder = async (opts: {
-    paymentMethod: "STELLAR_USDC"
+    paymentMethod: "STELLAR_USDC" | "UPI" | "INTERNAL"
     sourceCurrency: string
     sourceAmount?: number
     escrowTxId: string
@@ -81,6 +85,13 @@ export function PaymentModal({
         sourceCurrency: opts.sourceCurrency,
         sourceAmount: opts.sourceAmount,
         escrowTxId: opts.escrowTxId,
+        shippingFullName: shippingDetails?.fullName,
+        shippingPhone: shippingDetails?.phoneNumber,
+        shippingAddress: shippingDetails?.address,
+        shippingCity: shippingDetails?.city,
+        shippingState: shippingDetails?.state,
+        shippingPincode: shippingDetails?.pincode,
+        shippingCountry: shippingDetails?.country,
       }),
     })
     const json = await res.json()
@@ -89,17 +100,45 @@ export function PaymentModal({
   }
 
   const handleWalletPay = async () => {
+    if (!publicKey) {
+      alert("Please connect your wallet first.")
+      return
+    }
+    
     setPaying("wallet")
     try {
-      // Placeholder: integrate real Stellar wallet signing later.
-      const txHash = `mock_tx_${Math.random().toString(36).slice(2)}`
+      const { submitEscrowTransaction } = await import("@/lib/stellar-utils")
+      
+      // 1. Submit Escrow Transaction on Stellar (via Soroban)
+      const isXlm = currency === "XLM"
+      const sourceAmount = isXlm && quote?.sourceAmount ? Number(quote.sourceAmount) : Number(product.priceUsdc)
+
+      const result = await submitEscrowTransaction({
+        buyerPublicKey: publicKey,
+        supplierPublicKey: product.supplier?.stellarWallet || "GB5CLXT47BNHNXLR67QSNB5FBM5NTSFSO6IUJCMSO6BY6ZYBTYJGY566", // Fallback issuer if not provided
+        totalAmount: sourceAmount,
+        lockedAmount: sourceAmount / 2, // 50% locked
+        taskId: product.id,
+        deadline: Math.floor(Date.now() / 1000) + (3600 * 24 * 7), // 7 days
+        asset: isXlm ? "XLM" : "USDC"
+      }, useWallet().signTransaction)
+
+      if (!result.success) throw new Error("Stellar transaction failed")
+
+      const txHash = result.hash
       const order = await createOrder({
         paymentMethod: "STELLAR_USDC",
         sourceCurrency: currency,
         sourceAmount: quote?.sourceAmount ? Number(quote.sourceAmount) : undefined,
         escrowTxId: txHash,
       })
-      setSuccess({ txHash, orderId: order?.id })
+      setSuccess({ 
+        txHash, 
+        orderId: order?.id, 
+        qrCodeUrl: order?.qrCodeUrl 
+      })
+    } catch (e: any) {
+      alert(e.message || "Wallet payment failed")
     } finally {
       setPaying(null)
     }
@@ -120,15 +159,18 @@ export function PaymentModal({
       const initJson = await initRes.json()
       if (!initRes.ok) throw new Error(initJson?.message || "UPI initiation failed")
 
-      // In real flow: Razorpay checkout + webhook confirmation.
       const txHash = `upi_mock_${initJson.data?.razorpayOrderId || Math.random().toString(36).slice(2)}`
       const order = await createOrder({
-        paymentMethod: "STELLAR_USDC",
+        paymentMethod: "UPI",
         sourceCurrency: "INR",
         sourceAmount: Number(product.priceInr),
         escrowTxId: txHash,
       })
-      setSuccess({ txHash, orderId: order?.id })
+      setSuccess({ 
+        txHash, 
+        orderId: order?.id, 
+        qrCodeUrl: order?.qrCodeUrl 
+      })
     } finally {
       setPaying(null)
     }
@@ -157,7 +199,7 @@ export function PaymentModal({
                 <div className="font-semibold">Payment created</div>
               </div>
               <div className="text-sm text-muted-foreground mt-2">
-                TX hash: <span className="font-mono">{success.txHash}</span>
+                TX hash: <span className="font-mono">{String(success.txHash || "")}</span>
               </div>
               <a
                 className="text-sm text-primary hover:underline inline-flex items-center gap-2 mt-2"
@@ -167,9 +209,28 @@ export function PaymentModal({
               >
                 View on Stellar Expert <ArrowRight className="w-4 h-4" />
               </a>
-              {success.orderId && (
-                <div className="text-xs text-muted-foreground mt-2">
-                  Order recorded: <span className="font-mono">{success.orderId}</span>
+              {success.qrCodeUrl && (
+                <div className="bg-slate-800/50 rounded-2xl p-6 border border-white/5 flex flex-col items-center gap-4 my-4">
+                  <div className="text-xs font-medium text-primary uppercase tracking-wider">Your Unique Journey QR</div>
+                  <div className="p-3 bg-white rounded-2xl">
+                    <img src={success.qrCodeUrl} alt="Order QR" className="w-48 h-48" />
+                  </div>
+                  <p className="text-[10px] text-slate-400 text-center max-w-[240px]">
+                    Scan this QR code to track your product's journey from production to your doorstep.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full rounded-xl border-white/10 hover:bg-white/5 h-9 text-xs"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = success.qrCodeUrl!;
+                      link.download = `order-${success.orderId?.slice(0, 8)}-journey.png`;
+                      link.click();
+                    }}
+                  >
+                    Download Journey QR
+                  </Button>
                 </div>
               )}
             </div>
@@ -182,8 +243,8 @@ export function PaymentModal({
             <div className="rounded-lg border p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="font-medium truncate">{product.title}</div>
-                  <div className="text-sm text-muted-foreground mt-1">Product ID: {product.id}</div>
+                  <div className="font-medium truncate">{String(product.title || "")}</div>
+                  <div className="text-sm text-muted-foreground mt-1">Product ID: {String(product.id || "")}</div>
                 </div>
                 <Badge variant="secondary">Escrow</Badge>
               </div>
@@ -219,10 +280,10 @@ export function PaymentModal({
               ) : quote ? (
                 <div className="mt-2 text-sm text-muted-foreground">
                   <div className="font-mono">
-                    {quote.sourceAmount} {quote.sourceCurrency} → {quote.targetUsdc} USDC in escrow
+                    {String(quote.sourceAmount || 0)} {String(quote.sourceCurrency || "")} → {String(quote.targetUsdc || 0)} USDC in escrow
                   </div>
                   <div className="mt-1 text-xs">
-                    Rate: {quote.exchangeRate} · Fee: {quote.fee} USDC
+                    Rate: {String(quote.exchangeRate || "")} · Fee: {String(quote.fee || 0)} USDC
                   </div>
                 </div>
               ) : (
@@ -234,9 +295,21 @@ export function PaymentModal({
               <Button disabled={!quote || paying !== null || (!user?.id && !publicKey)} className="w-full" onClick={handleWalletPay}>
                 {paying === "wallet" ? "Processing..." : "Pay with Stellar Wallet"}
               </Button>
+              
+              {user?.role === 'SUPPLIER' && (
+                <Button 
+                  variant="outline" 
+                  disabled={paying !== null || !user?.id} 
+                  className="w-full border-primary/20 hover:bg-primary/5" 
+                  onClick={handleUpiPay}
+                >
+                  {paying === "upi" ? "Processing..." : "Pay with UPI (Internal API)"}
+                </Button>
+              )}
+
               {(!user?.id && !publicKey) && (
                 <div className="text-xs text-muted-foreground text-center">
-                  Please connect your wallet to complete checkout.
+                  Please connect your wallet or login to complete checkout.
                 </div>
               )}
             </div>

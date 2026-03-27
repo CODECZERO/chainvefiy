@@ -84,8 +84,8 @@ export function NotificationBell() {
                 <div key={n.id} className={`px-4 py-3 border-b border-slate-700/50 flex gap-3 ${!n.isRead ? "bg-slate-700/30" : ""}`}>
                   <div className="mt-0.5 shrink-0">{ICONS[n.type] || <Bell className="w-4 h-4 text-slate-400" />}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white truncate">{n.title}</div>
-                    <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{n.body}</div>
+                    <div className="text-sm font-medium text-white truncate">{String(n.title || "")}</div>
+                    <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">{String(n.body || "")}</div>
                     <div className="text-xs text-slate-500 mt-1">{new Date(n.createdAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}</div>
                   </div>
                   {!n.isRead && <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0" />}

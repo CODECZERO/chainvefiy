@@ -13,21 +13,24 @@ dotenv.config();
 const app = express();
 
 const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(",").map(origin => {
-    // Trim whitespace and trailing slashes to prevent common CORS mismatches
-    return origin.trim().replace(/\/$/, "");
-  })
+  ? process.env.FRONTEND_URL.split(",").map(origin => origin.trim().replace(/\/$/, ""))
   : ['http://localhost:3000'];
-
-// Log allowed origins for debugging
-logger.info(`[CORS] Allowed Origins: ${allowedOrigins.join(", ")}`);
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow local development
+      if (!origin || origin.includes('localhost:3000') || origin.includes('127.0.0.1:3000')) {
+        return callback(null, true);
+      }
+      if (allowedOrigins.includes(origin) || (process.env.NODE_ENV === 'development' && origin.startsWith('http://localhost:'))) {
+        return callback(null, true);
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Access-Token'],
   })
 );
 
@@ -48,26 +51,8 @@ app.use(
 app.use(httpLogger);
 
 // Custom JSON parser with better error handling
-app.use((req, res, next) => {
-  // Skip JSON parsing for multipart/form-data requests (file uploads)
-  if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
-    return next();
-  }
-
-  express.json({
-    limit: '10mb',
-    verify: (req, res, buf, encoding) => {
-      try {
-        JSON.parse(buf.toString());
-      } catch (err) {
-        logger.error('JSON Parse Error', { error: err.message, url: req.url, body: buf.toString().substring(0, 200) });
-        const error = new Error('Invalid JSON format');
-        (error as any).statusCode = 400;
-        throw error;
-      }
-    },
-  })(req, res, next);
-});
+// Standard body parsers
+app.use(express.json({ limit: '10mb' }));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -144,9 +129,6 @@ app.use((req, res) => {
   });
 });
 
-// Connect to database only if not in test mode
-if (process.env.NODE_ENV !== 'test') {
-  connectDB();
-}
+
 
 export default app;

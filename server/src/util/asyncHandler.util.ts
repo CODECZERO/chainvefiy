@@ -16,7 +16,12 @@ const AsyncHandler = (
         return next(error);
       }
       logger.error('Unhandled error in AsyncHandler', { message: error?.message, stack: error?.stack, url: req.originalUrl });
-      next(new ApiError(500, 'Internal Server Error'));
+      
+      const message = process.env.NODE_ENV === 'development' 
+        ? (error?.message || 'Internal Server Error')
+        : 'Internal Server Error';
+        
+      next(new ApiError(500, message));
     });
   };
 };

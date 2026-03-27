@@ -59,7 +59,7 @@ export default function Marketplace() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [category, setCategory] = useState("All")
-  const [verifiedOnly, setVerifiedOnly] = useState(true)
+  const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [sortBy, setSortBy] = useState<"newest" | "price-low" | "price-high" | "most-voted">("newest")
   const [usdcInr, setUsdcInr] = useState<number>(83.33)
 

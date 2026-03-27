@@ -12,7 +12,7 @@ export const fetchStats = asyncHandler(async (req: Request, res: Response) => {
   try {
     const stats = await Promise.race([
       getStats(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('DB query timeout')), 900)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('DB query timeout')), 5000)),
     ]);
     await cacheSet(cacheKey, stats, 300); // 5 min
     return res.json(new ApiResponse(200, stats, 'Stats fetched'));

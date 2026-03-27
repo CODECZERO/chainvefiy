@@ -55,7 +55,30 @@ export async function handleIncoming(req: any, res: any) {
   const upper = message.toUpperCase();
 
   try {
-    if (upper === 'HELP') {
+    if (upper === 'JOIN CASE-SMALLER' || upper === 'CASE-SMALLER') {
+      // 1. Mark as joined
+      await updateSession(phone, 'IDLE', { ...(session.sessionData as any), joined: true });
+      
+      // 2. Try to link to an existing supplier or user
+      const existingSupplier = await prisma.supplier.findUnique({
+        where: { whatsappNumber: phone }
+      });
+      const existingUser = await prisma.user.findUnique({
+        where: { whatsappNumber: phone }
+      });
+      
+      if (existingSupplier) {
+        await prisma.whatsAppSession.update({
+          where: { phoneNumber: phone },
+          data: { supplierId: existingSupplier.id }
+        });
+        reply = `Welcome back, ${existingSupplier.name}! You are now connected to Pramanik. Type HELP for commands.`;
+      } else if (existingUser) {
+        reply = `Welcome back! You are now connected to Pramanik as a ${existingUser.role.toLowerCase()}. We'll notify you about your orders here.`;
+      } else {
+        reply = `Welcome to Pramanik! Your WhatsApp is now connected. Please register at pramanik.app to link your account.`;
+      }
+    } else if (upper === 'HELP') {
       reply = getHelpMenu();
       await updateSession(phone, 'IDLE', {});
     } else if (upper === 'STATUS') {
@@ -347,7 +370,14 @@ export async function notifySupplier(
 
   const msg = messages[type];
   if (msg) {
-    await send(supplier.whatsappNumber, msg);
+    // Check if session is joined
+    const session = await prisma.whatsAppSession.findUnique({ where: { phoneNumber: supplier.whatsappNumber } });
+    const isJoined = (session?.sessionData as any)?.joined === true;
+
+    if (isJoined) {
+      await send(supplier.whatsappNumber, msg);
+    }
+    
     await prisma.notification.create({
       data: {
         userId: supplier.userId,
@@ -357,6 +387,33 @@ export async function notifySupplier(
         referenceId: data.productId || data.orderId,
       },
     });
+  }
+}
+
+export async function notifyUser(
+  userId: string,
+  type: string,
+  data: Record<string, any>
+) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+  if (!user?.whatsappNumber) return;
+
+  const messages: Record<string, string> = {
+    ORDER_PLACED: `Order placed successfully!\nProduct: ${data.title}\nAmount: ${data.amountInr} INR\nTrack at: ${data.url}`,
+    ORDER_SHIPPED: `Your order for "${data.title}" has been shipped!`,
+    DELIVERY_CONFIRMED: `Delivery confirmed for "${data.title}". Thank you for shopping with Pramanik!`,
+  };
+
+  const msg = messages[type];
+  if (msg) {
+    const session = await prisma.whatsAppSession.findUnique({ where: { phoneNumber: user.whatsappNumber } });
+    const isJoined = (session?.sessionData as any)?.joined === true;
+
+    if (isJoined) {
+      await send(user.whatsappNumber, msg);
+    }
   }
 }
 
@@ -391,11 +448,27 @@ async function appendHistory(phone: string, userMsg: string, botReply: string, s
   });
 }
 
-async function send(phone: string, body: string, mediaUrl?: string) {
-  await client.messages.create({
-    from: FROM,
-    to: `whatsapp:${phone}`,
-    body,
-    ...(mediaUrl ? { mediaUrl: [mediaUrl] } : {}),
-  });
+async function send(
+  phone: string,
+  bodyOrVariables: string | Record<string, string>,
+  mediaUrl?: string,
+  contentSid?: string
+) {
+  const to = phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`;
+  
+  if (contentSid) {
+    await client.messages.create({
+      from: FROM,
+      to,
+      contentSid,
+      contentVariables: typeof bodyOrVariables === 'string' ? bodyOrVariables : JSON.stringify(bodyOrVariables),
+    });
+  } else {
+    await client.messages.create({
+      from: FROM,
+      to,
+      body: typeof bodyOrVariables === 'string' ? bodyOrVariables : '',
+      ...(mediaUrl ? { mediaUrl: [mediaUrl] } : {}),
+    });
+  }
 }

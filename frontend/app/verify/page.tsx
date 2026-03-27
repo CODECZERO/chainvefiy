@@ -41,7 +41,7 @@ export default function VerifyPage() {
   const loadTokens = async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/tokens/${user.id}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/tokens/${user.id}`, { credentials: "include" });
       const data = await res.json();
       if (data.data?.balance !== undefined) setTokenBalance(data.data.balance);
     } catch {}
@@ -66,6 +66,7 @@ export default function VerifyPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, voteType, reason: "" }),
+        credentials: "include"
       })
       if (!res.ok) {
         const error = await res.json();

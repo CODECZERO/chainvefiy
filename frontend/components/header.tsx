@@ -7,9 +7,9 @@ import type { RootState, AppDispatch } from "@/lib/redux/store"
 import { logoutUser } from "@/lib/redux/slices/user-auth-slice"
 import { disconnectWallet } from "@/lib/redux/slices/wallet-slice"
 import { Button } from "@/components/ui/button"
-import { Menu, X, ShieldCheck, MessageCircle, LogOut, User, ChevronDown, Lock } from "lucide-react"
+import { Menu, X, ShieldCheck, MessageCircle, LogOut, User, ChevronDown, Lock, LayoutGrid, ShoppingBag } from "lucide-react"
 import dynamic from "next/dynamic"
- 
+
  const StellarWalletSelector = dynamic(() => import("./stellar/wallet-selector").then(m => m.StellarWalletSelector), { ssr: false })
  const AuthModal = dynamic(() => import("./auth-modal").then(m => m.AuthModal), { ssr: false })
  const NotificationBell = dynamic(() => import("./notification-bell").then(m => m.NotificationBell), { ssr: false })
@@ -34,16 +34,35 @@ export function Header() {
     if (typeof window === "undefined") return
     const dismissed = window.sessionStorage.getItem("pramanik_guest_bar_dismissed") === "true"
     setShowGuestBar(!dismissed && !isAuthenticated)
+
+    const handleOpenAuth = () => setAuthModalOpen(true)
+    window.addEventListener('open-auth-modal', handleOpenAuth)
+    return () => window.removeEventListener('open-auth-modal', handleOpenAuth)
   }, [isAuthenticated])
+
+  const isSupplier = isAuthenticated && user?.role === "SUPPLIER"
 
   const NAV: Array<{ href: string; label: string; requiresAuth?: boolean }> = [
     { href: "/marketplace", label: "Marketplace" },
     { href: "/community", label: "Community" },
     { href: "/leaderboard", label: "Leaderboard" },
-    { href: "/verify", label: "Verify", requiresAuth: true },
-    { href: "/bounty-board", label: "Bounties", requiresAuth: true },
-    ...(isAuthenticated && user?.role === "SUPPLIER" && !isConnected ? [{ href: "/seller-dashboard", label: "Sell" }] : []),
   ]
+
+  // Add role-based links
+  if (isSupplier) {
+    NAV.push(
+      { href: "/seller-dashboard", label: "Dashboard" },
+      { href: "/verify", label: "Verify", requiresAuth: true },
+      { href: "/bounty-board", label: "Bounties", requiresAuth: true }
+    )
+  } else if (user?.role === "BUYER") {
+    NAV.push({ href: "/buyer-dashboard", label: "My Orders" })
+  }
+
+  // Add wallet-based links if not already present
+  if (isConnected && !NAV.some(n => n.href === "/buyer-dashboard")) {
+    NAV.push({ href: "/buyer-dashboard", label: "My Orders" })
+  }
 
 
 
@@ -145,17 +164,23 @@ export function Header() {
                 <button onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 bg-accent border border-border hover:bg-accent/70 rounded-xl px-3 py-2 text-sm transition-all">
                   <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white">
-                    {user.email?.[0]?.toUpperCase() || "U"}
+                    {String(user.email?.[0] || "U").toUpperCase()}
                   </div>
-                  <span className="text-foreground/90 max-w-[80px] truncate">{user.email?.split("@")[0]}</span>
+                  <span className="text-foreground/90 max-w-[80px] truncate">{String(user.email || "").split("@")[0]}</span>
                   <ChevronDown className="w-3 h-3 text-muted-foreground" />
                 </button>
                 {userMenuOpen && (
                   <div className="absolute right-0 top-12 rounded-2xl shadow-2xl w-52 py-2 z-50 border border-border bg-popover text-popover-foreground">
                     <Link href="/seller-dashboard" onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl mx-1 transition-colors">
-                      <User className="w-4 h-4" /> Dashboard
+                      <LayoutGrid className="w-4 h-4" /> Seller Dashboard
                     </Link>
+                    {isConnected && (
+                      <Link href="/buyer-dashboard" onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl mx-1 transition-colors">
+                        <ShoppingBag className="w-4 h-4" /> Buyer Dashboard
+                      </Link>
+                    )}
                     <div className="h-px bg-border my-1 mx-3" />
                     <button onClick={handleLogout}
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 w-full text-left rounded-xl mx-1 transition-colors">
@@ -177,11 +202,11 @@ export function Header() {
                   <LogOut className="w-3.5 h-3.5" />
                 </Button>
               </div>
-            ) : (
+            ) : !isAuthenticated ? (
               <Button onClick={() => setWalletSelectorOpen(true)} className="rounded-xl h-9 text-sm font-medium transition-all">
                 Connect Wallet
               </Button>
-            )}
+            ) : null}
           </div>
 
           {/* Mobile burger */}
@@ -227,22 +252,22 @@ export function Header() {
                     Dashboard
                   </Button>
                 </Link>
-              ) : (
+              ) : !isConnected ? (
                 <Button onClick={() => { setAuthModalOpen(true); setMobileOpen(false) }}
                   variant="outline" className="w-full rounded-2xl h-11">
                   Supplier Login
                 </Button>
-              )}
+              ) : null}
               {isConnected ? (
                 <Button onClick={() => { dispatch(disconnectWallet()); setMobileOpen(false) }} variant="ghost" className="w-full rounded-2xl h-11 text-destructive hover:bg-destructive/10">
                   Disconnect Wallet
                 </Button>
-              ) : (
+              ) : !isAuthenticated ? (
                 <Button onClick={() => { setWalletSelectorOpen(true); setMobileOpen(false) }}
                   className="w-full rounded-2xl h-11">
                   Connect Wallet
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
         )}

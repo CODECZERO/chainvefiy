@@ -53,8 +53,9 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
   });
 
   // If registering as supplier, create supplier profile
+  let supplierProfile: any;
   if (role === 'SUPPLIER' && name && whatsappNumber) {
-    await registerSupplier({
+    supplierProfile = await registerSupplier({
       userId: user.id,
       name,
       location,
@@ -69,7 +70,7 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
     .cookie('refreshToken', refreshToken, COOKIE_OPTIONS)
     .status(201)
     .json(new ApiResponse(201, {
-      user: { id: user.id, email: user.email, role: user.role, stellarWallet },
+      user: { id: user.id, email: user.email, role: user.role, isVerified: (user as any).isVerified, stellarWallet, supplierProfile },
       accessToken,
     }, 'Registration successful'));
 });
@@ -85,7 +86,14 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     .cookie('accessToken', accessToken, COOKIE_OPTIONS)
     .cookie('refreshToken', refreshToken, COOKIE_OPTIONS)
     .json(new ApiResponse(200, {
-      user: { id: user.id, email: user.email, role: user.role, stellarWallet: user.stellarWallet },
+      user: {
+        id: user.id, 
+        email: user.email, 
+        role: user.role, 
+        isVerified: (user as any).isVerified,
+        stellarWallet: user.stellarWallet, 
+        supplierProfile: (user as any).supplierProfile 
+      },
       accessToken,
     }, 'Login successful'));
 });
@@ -107,4 +115,45 @@ export const getMe = asyncHandler(async (req: any, res: Response) => {
   });
   if (!user) throw new ApiError(404, 'User not found');
   res.json(new ApiResponse(200, user, 'User fetched'));
+});
+
+// ─── GET SUPPLIER ORDERS (Customer Manager) ────────────────────────
+export const getSupplierOrders = asyncHandler(async (req: any, res: Response) => {
+  const { prisma } = await import('../lib/prisma.js');
+  
+  // Find the supplier profile for this user
+  const supplierProfile = await prisma.supplier.findUnique({
+    where: { userId: req.user?.id }
+  });
+  
+  if (!supplierProfile) throw new ApiError(403, 'Not a supplier');
+
+  // Find all orders for products owned by this supplier
+  // Orders are linked to products which are linked to suppliers
+  const orders = await prisma.order.findMany({
+    where: {
+      product: {
+        supplierId: supplierProfile.id
+      }
+    },
+    include: {
+      product: {
+        select: {
+          title: true,
+          priceInr: true,
+          priceUsdc: true
+        }
+      },
+      buyer: {
+        select: {
+          id: true,
+          email: true,
+          stellarWallet: true
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  res.json(new ApiResponse(200, orders, 'Supplier orders fetched'));
 });

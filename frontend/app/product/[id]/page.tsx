@@ -1,13 +1,22 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSelector } from "react-redux"
 import { useParams } from "next/navigation"
+import type { RootState } from "@/lib/redux/store"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2, XCircle, Clock, MapPin, ExternalLink, MessageCircle, ShieldCheck, Package, Lightbulb } from "lucide-react"
+import Image from "next/image"
+import { CheckCircle2, XCircle, Clock, MapPin, ExternalLink, MessageCircle, ShieldCheck, Package, Lightbulb, Coins } from "lucide-react"
 import Link from "next/link"
 import { PaymentModal } from "@/components/payment-modal"
+import { BountyModal } from "@/components/bounty-modal"
+import { SubmitProofModal } from "@/components/submit-proof-modal"
+import { BuyerProfileModal } from "@/components/buyer-profile-modal"
 import { convertInrToUsdc, getUSDCInrRate } from "@/lib/exchange-rates"
+import { getBountiesByProduct } from "@/lib/api-service"
+import { useToast } from "@/components/ui/use-toast"
+import { toast as toastFn } from "@/components/ui/use-toast"
 
 const PAYMENT_CURRENCIES = ["XLM", "USDC", "BTC", "ETH", "EUR", "GBP"]
 
@@ -19,7 +28,16 @@ export default function ProductPage() {
   const [showPayment, setShowPayment] = useState(false)
   const [activeImg, setActiveImg] = useState(0)
   const [showModal, setShowModal] = useState(false)
+  const [showBountyModal, setShowBountyModal] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showProofModal, setShowProofModal] = useState(false)
+  const [selectedBounty, setSelectedBounty] = useState<any>(null)
+  const [buyerProfile, setBuyerProfile] = useState<any>(null)
+  const [bounties, setBounties] = useState<any[]>([])
   const [usdcInr, setUsdcInr] = useState(83.33)
+  const { isAuthenticated, user } = useSelector((s: RootState) => s.userAuth)
+  const isSupplier = isAuthenticated && user?.role === "SUPPLIER"
+  const { toast } = useToast()
 
   useEffect(() => {
     loadProduct()
@@ -34,10 +52,61 @@ export default function ProductPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`)
       const data = await res.json()
       setProduct(data.data)
+
+      // Load bounties
+      const bountyRes = await getBountiesByProduct(id as string)
+      if (bountyRes.success) {
+        setBounties(bountyRes.data)
+      }
     } catch (e) {
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkProfileAndBuy = async () => {
+    if (!isAuthenticated) {
+      toast({ title: "Auth Required", description: "Please connect your wallet first." })
+      return
+    }
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/buyer`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      })
+      const data = await res.json()
+      if (data.success && data.data) {
+        setBuyerProfile(data.data)
+        setShowModal(true)
+      } else {
+        setShowProfileModal(true)
+      }
+    } catch (e) {
+      setShowProfileModal(true)
+    }
+  }
+
+  const handleProfileSave = async (data: any) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/buyer`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}` 
+        },
+        body: JSON.stringify(data)
+      })
+      const json = await res.json()
+      if (json.success) {
+        setBuyerProfile(json.data)
+        setShowProfileModal(false)
+        setShowModal(true)
+      } else {
+        throw new Error(json.message)
+      }
+    } catch (e: any) {
+      toast({ title: "Save Failed", description: e.message || "Failed to save profile", variant: "destructive" })
     }
   }
 
@@ -72,9 +141,20 @@ export default function ProductPage() {
 
             {/* Proof Gallery */}
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="h-72 bg-muted flex items-center justify-center text-7xl">
+              <div className="h-72 bg-muted flex items-center justify-center text-7xl overflow-hidden relative">
                 {product.proofMediaUrls?.[activeImg] ? (
-                  <img src={product.proofMediaUrls[activeImg]} alt="" className="w-full h-full object-cover" />
+                  <div className="relative w-full h-full">
+                    <Image 
+                      src={product.proofMediaUrls[activeImg]} 
+                      alt={product.title || "Product Image"} 
+                      fill
+                      className="object-cover"
+                      priority
+                      onError={(e) => {
+                        (e.target as any).src = 'https://placehold.co/600x400?text=Image+Not+Found';
+                      }}
+                    />
+                  </div>
                 ) : <Package className="w-20 h-20 text-muted-foreground opacity-60" />}
               </div>
               {product.proofMediaUrls?.length > 1 && (
@@ -88,8 +168,8 @@ export default function ProductPage() {
               )}
             </div>
 
-            {/* QR Code */}
-            {product.qrCodeUrl && (
+            {/* QR Code - Only Supplier */}
+            {product.qrCodeUrl && user?.role === 'SUPPLIER' && (
               <div className="bg-card border border-border rounded-2xl p-5">
                 <h3 className="font-semibold mb-3">Product QR Code</h3>
                 <p className="text-muted-foreground text-sm mb-4">
@@ -97,14 +177,25 @@ export default function ProductPage() {
                   Buyers scan it to see the verified journey.
                 </p>
                 <div className="flex items-center gap-6">
-                  <img src={product.qrCodeUrl} alt="QR Code" className="w-32 h-32 rounded-xl border border-border bg-background" />
+                  <div className="relative w-32 h-32 rounded-xl border border-border bg-background overflow-hidden items-center justify-center flex">
+                    <Image 
+                      src={product.qrCodeUrl} 
+                      alt="QR Code" 
+                      fill
+                      className="object-contain"
+                      unoptimized
+                      onError={(e) => {
+                        (e.target as any).src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '');
+                      }}
+                    />
+                  </div>
                   <div className="space-y-2">
                     <a href={product.qrCodeUrl} download={`pramanik-${product.id}.png`}>
                       <Button variant="outline" className="rounded-xl w-full text-sm">
                         Download QR Code
                       </Button>
                     </a>
-                    <a href={`https://wa.me/?text=Check%20this%20verified%20product%20on%20Pramanik:%20${encodeURIComponent((process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/product/' + product.id)}`}
+                    <a href={`https://wa.me/?text=${encodeURIComponent(`Check out ${product.title || "this product"} on Pramanik: ` + (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/product/' + product.id)}`}
                       target="_blank" rel="noopener noreferrer">
                       <Button variant="outline" className="rounded-xl w-full text-sm">
                         Share via WhatsApp
@@ -118,7 +209,7 @@ export default function ProductPage() {
             {/* Title + Status */}
             <div>
               <div className="flex items-start justify-between gap-4">
-                <h1 className="text-2xl font-bold">{product.title}</h1>
+                <h1 className="text-2xl font-bold">{String(product.title || "")}</h1>
                 <span className={`shrink-0 flex items-center gap-1 border rounded-full px-3 py-1 text-sm font-semibold ${
                   isVerified ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" :
                   "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
@@ -127,9 +218,9 @@ export default function ProductPage() {
                   {isVerified ? "Verified" : "Pending"}
                 </span>
               </div>
-              <p className="text-muted-foreground mt-2 leading-relaxed">{product.description}</p>
+              <p className="text-muted-foreground mt-2 leading-relaxed">{String(product.description || "")}</p>
               <div className="inline-block mt-3 bg-muted text-muted-foreground text-xs font-medium px-3 py-1 rounded-full">
-                {product.category}
+                {String(product.category || "General")}
               </div>
             </div>
 
@@ -137,19 +228,24 @@ export default function ProductPage() {
             <Link href={`/supplier/${product.supplier?.id}`}>
               <div className="flex items-center gap-4 bg-card border border-border hover:bg-accent rounded-2xl p-4 transition-colors">
                 <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center font-bold text-lg text-primary-foreground">
-                  {product.supplier?.name?.[0] || "S"}
+                  {String(product.supplier?.name?.[0] || "S")}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">{product.supplier?.name}</span>
+                    <span className="font-semibold">{String(product.supplier?.name || "Supplier")}</span>
                     {product.supplier?.isVerified && <ShieldCheck className="w-4 h-4 text-orange-400" />}
                   </div>
                   <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                    <MapPin className="w-3 h-3" /> {product.supplier?.location}
+                    <MapPin className="w-3 h-3" /> {String(product.supplier?.location || "Unknown")}
                   </div>
+                  {product.supplier?.stellarWallet && (
+                    <div className="mt-1 text-[10px] font-mono text-slate-500 break-all bg-slate-500/5 px-2 py-0.5 rounded">
+                      {product.supplier.stellarWallet}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
-                  <div className="text-primary font-bold">{product.supplier?.trustScore || 0}</div>
+                  <div className="text-primary font-bold">{String(product.supplier?.trustScore || 0)}</div>
                   <div className="text-muted-foreground text-xs">Trust Score</div>
                 </div>
               </div>
@@ -157,15 +253,26 @@ export default function ProductPage() {
 
             {/* Verification */}
             <div className="bg-card border border-border rounded-2xl p-5">
-              <h3 className="font-semibold mb-3">Community Verification</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold">Community Verification</h3>
+                <Button 
+                  onClick={() => setShowBountyModal(true)}
+                  variant="outline" 
+                  size="sm" 
+                  className="rounded-xl border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                >
+                  <Coins className="w-4 h-4 mr-2" />
+                  Request More Proof
+                </Button>
+              </div>
               <div className="flex items-center gap-4 mb-3">
                 <span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm">
-                  <CheckCircle2 className="w-4 h-4" /> {product.voteReal} real
+                  <CheckCircle2 className="w-4 h-4" /> {String(product.voteReal || 0)} real
                 </span>
                 <span className="flex items-center gap-2 text-red-400 text-sm">
-                  <XCircle className="w-4 h-4" /> {product.voteFake} fake
+                  <XCircle className="w-4 h-4" /> {String(product.voteFake || 0)} fake
                 </span>
-                <span className="text-muted-foreground text-sm ml-auto">{realPct}% trust rate</span>
+                <span className="text-muted-foreground text-sm ml-auto">{String(realPct)}% trust rate</span>
               </div>
               <div className="h-3 bg-muted rounded-full overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" style={{ width: `${realPct}%` }} />
@@ -177,6 +284,46 @@ export default function ProductPage() {
                 </p>
               )}
             </div>
+
+            {/* Active Bounties */}
+            {bounties?.filter(b => b.status === "ACTIVE").length > 0 && (
+              <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-amber-500" />
+                  Active Bounties
+                </h3>
+                <div className="grid gap-3">
+                  {bounties.filter(b => b.status === "ACTIVE").map((b) => (
+                    <div key={b.id} className="bg-muted/30 border border-border rounded-xl p-4 flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{String(b.description || "")}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                            Issued by {b.issuer?.email || (b.issuerWallet ? `${b.issuerWallet.slice(0, 6)}...${b.issuerWallet.slice(-4)}` : "Anonymous")}
+                          </p>
+                          {/* Solver Action */}
+                          {(user?.role === "SUPPLIER" || (user?.role === "BUYER" && (user as any)?.isVerified)) && (
+                            <button 
+                              onClick={() => {
+                                setSelectedBounty(b)
+                                setShowProofModal(true)
+                              }}
+                              className="text-[10px] text-primary hover:underline font-bold uppercase transition-colors"
+                            >
+                              Submit Proof
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-bold text-amber-600 dark:text-amber-400">₹{Number(b.amount || 0).toLocaleString()}</div>
+                        <div className="text-[10px] text-muted-foreground mr-1">Reward</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Stage Timeline */}
             {product.stageUpdates?.length > 0 && (
@@ -190,8 +337,8 @@ export default function ProductPage() {
                         {i < product.stageUpdates.length - 1 && <div className="w-px flex-1 bg-border mt-2" />}
                       </div>
                       <div className="pb-4 flex-1">
-                        <div className="font-medium">{s.stageName}</div>
-                        {s.note && <p className="text-muted-foreground text-sm mt-1">{s.note}</p>}
+                        <div className="font-medium">{String(s.stageName || "Update")}</div>
+                        {s.note && <p className="text-muted-foreground text-sm mt-1">{String(s.note)}</p>}
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                           <span>{new Date(s.createdAt).toLocaleString()}</span>
                           {(s.gpsLat && s.gpsLng) && (
@@ -202,7 +349,7 @@ export default function ProductPage() {
                               className="flex items-center gap-1 text-primary hover:underline"
                             >
                               <MapPin className="w-3 h-3" />
-                              {s.gpsAddress ? s.gpsAddress : "View location"}
+                              {String(s.gpsAddress ? s.gpsAddress : "View location")}
                             </a>
                           )}
                           {s.stellarTxId && (
@@ -223,8 +370,10 @@ export default function ProductPage() {
           <div className="lg:col-span-1">
             <div className="sticky top-6 bg-card border border-border rounded-2xl p-6 space-y-5">
               <div>
-                <div className="text-3xl font-bold font-mono text-primary">₹{product.priceInr}</div>
-                <div className="text-muted-foreground text-sm mt-1">≈ {usdcPrice.toFixed(4)} USDC settled in escrow</div>
+                <div className="text-3xl font-bold font-mono text-primary">₹{Number(product.priceInr || 0).toLocaleString()}</div>
+                <div className="text-muted-foreground text-sm mt-1">
+                  ≈ {(selectedCurrency === "USDC" ? (Number(usdcPrice) || 0) : (Number(product.priceInr || 0) / 10)).toFixed(2)} {selectedCurrency} settled in escrow
+                </div>
               </div>
 
               {/* Currency selector */}
@@ -251,9 +400,15 @@ export default function ProductPage() {
                 <span className="text-foreground font-medium">Stellar Soroban escrow</span> and released to supplier only after you confirm delivery.
               </div>
 
-              <Button onClick={() => setShowModal(true)} className="w-full rounded-xl h-11 font-semibold">
-                Buy Now with {selectedCurrency}
-              </Button>
+              {!isSupplier ? (
+                <Button onClick={checkProfileAndBuy} className="w-full rounded-xl h-11 font-semibold">
+                  Buy Now with {selectedCurrency}
+                </Button>
+              ) : (
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-sm text-primary text-center font-medium">
+                  Suppliers cannot buy products. Visit your dashboard to manage your own listings.
+                </div>
+              )}
 
               {product.stellarTxId && (
                 <a href={`https://stellar.expert/explorer/testnet/tx/${product.stellarTxId}`} target="_blank" rel="noopener noreferrer"
@@ -275,9 +430,36 @@ export default function ProductPage() {
             title: product.title,
             priceInr: Number(product.priceInr),
             priceUsdc: usdcPrice,
+            supplier: product.supplier,
           }}
+          shippingDetails={buyerProfile}
+          initialCurrency={selectedCurrency as any}
         />
       )}
+      {product && (
+        <BountyModal
+          isOpen={showBountyModal}
+          onClose={() => {
+            setShowBountyModal(false)
+            loadProduct() // Refresh bounties
+          }}
+          product={product}
+        />
+      )}
+      {product && (
+        <SubmitProofModal
+          isOpen={showProofModal}
+          onClose={() => setShowProofModal(false)}
+          bounty={selectedBounty}
+          onSuccess={() => loadProduct()}
+        />
+      )}
+      <BuyerProfileModal 
+        isOpen={showProfileModal} 
+        onClose={() => setShowProfileModal(false)} 
+        onSave={handleProfileSave}
+        initialData={buyerProfile}
+      />
     </div>
   )
 }

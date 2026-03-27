@@ -106,8 +106,25 @@ export const initiateUPI = (data: any) => apiFetch('/payments/upi/initiate', { m
 
 // ─── Stellar / Wallet helpers (used by stellar-utils.ts) ───
 export const getWalletBalance = (publicKey: string) => apiFetch(`/wallet/balance/${publicKey}`);
-export const verifyDonation = (data: any) =>
-  apiFetch('/payment/verify-donation', { method: 'POST', body: JSON.stringify(data) });
+
+// Bounties
+export const createBounty = (data: { productId: string; issuerId: string; amount: number; description: string }) =>
+  apiFetch('/bounties', { method: 'POST', body: JSON.stringify(data) });
+
+export const verifyBountyPayment = (data: { bountyId: string; transactionHash: string; paymentMethod?: string }) =>
+  apiFetch('/bounties/verify', { method: 'POST', body: JSON.stringify(data) });
+
+export const submitBountyProof = (data: { bountyId: string; solverId: string; proofCid: string }) =>
+  apiFetch('/bounties/submit-proof', { method: 'POST', body: JSON.stringify(data) });
+
+export const getBountiesByProduct = (productId: string) =>
+  apiFetch(`/bounties/product/${productId}`);
+
+export const getSupplierBounties = (supplierId: string) =>
+  apiFetch(`/bounties/supplier/${supplierId}`);
+
+export const getAllBounties = () => apiFetch('/bounties');
+
 export const createStellarAccount = () => apiFetch('/wallet/create', { method: 'POST' });
 export const walletPay = (data: any) =>
   apiFetch('/payment/wallet-pay', { method: 'POST', body: JSON.stringify(data) });
@@ -119,4 +136,6 @@ export const getVoteXdr = (data: any) =>
   apiFetch('/contracts/vote/xdr', { method: 'POST', body: JSON.stringify(data) });
 export const getSubmitProofXdr = (data: any) =>
   apiFetch('/contracts/proof/xdr', { method: 'POST', body: JSON.stringify(data) });
+
+export const getSupplierOrders = () => apiFetch('/user/supplier/orders');
 

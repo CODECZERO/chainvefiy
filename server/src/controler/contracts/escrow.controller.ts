@@ -6,7 +6,7 @@ import { escrowService } from '../../services/stellar/escrow.service.js';
 
 // Build transaction XDR endpoints
 const buildCreateEscrowTx = AsyncHandler(async (req: Request, res: Response) => {
-  const { buyerPublicKey, supplierPublicKey, totalAmount, lockedAmount, taskId, deadline } = req.body;
+  const { buyerPublicKey, supplierPublicKey, totalAmount, lockedAmount, taskId, deadline, asset } = req.body;
   
   if (!buyerPublicKey || !supplierPublicKey || !totalAmount || !lockedAmount || !taskId) {
     throw new ApiError(400, 'Missing required fields');
@@ -18,7 +18,8 @@ const buildCreateEscrowTx = AsyncHandler(async (req: Request, res: Response) => 
     totalAmount,
     lockedAmount,
     taskId,
-    deadline || Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
+    deadline || Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+    asset
   );
 
   return res.status(200).json(new ApiResponse(200, { xdr }, 'Escrow creation transaction built'));

@@ -23,6 +23,8 @@ import notificationsRoutes from './v2/notifications.routes.js';
 import ratesRoutes from './v2/rates.routes.js';
 import qrRoutes from './v2/qr.routes.js';
 import deliveryRoutes from './v2/delivery.routes.js';
+import bountyRoutes from './v2/bounty.routes.js';
+import buyerRoutes from './v2/buyer.routes.js';
 
 const router = Router();
 
@@ -51,6 +53,8 @@ router.use('/notifications', notificationsRoutes);
 router.use('/rates', ratesRoutes);
 router.use('/qr', qrRoutes);
 router.use('/delivery', deliveryRoutes);
+router.use('/bounties', bountyRoutes);
+router.use('/buyer', buyerRoutes);
 
 
 import legacyOrderRoutes from './order.routes.js';

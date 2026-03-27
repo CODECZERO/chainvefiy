@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { ApiError } from '../util/apiError.util.js';
 
 interface FindUserInput {
   email?: string;
@@ -10,7 +11,7 @@ interface FindUserInput {
 
 export const findUser = async (input: FindUserInput) => {
   if (!input.email && !input.id && !input.whatsappNumber)
-    throw new Error('Provide email, id, or whatsappNumber');
+    throw new ApiError(400, 'Provide email, id, or whatsappNumber');
 
   const user = await prisma.user.findFirst({
     where: {
@@ -35,37 +36,47 @@ export const saveUserAndTokens = async (data: {
 }) => {
   const passwordHash = await bcrypt.hash(data.password, 10);
 
-  const user = await prisma.user.create({
-    data: {
-      email: data.email,
-      passwordHash,
-      stellarWallet: data.stellarWallet,
-      whatsappNumber: data.whatsappNumber,
-      role: data.role || 'BUYER',
-    },
-  });
+  try {
+    const user = await prisma.user.create({
+      data: {
+        email: data.email.toLowerCase(),
+        passwordHash,
+        stellarWallet: data.stellarWallet,
+        whatsappNumber: data.whatsappNumber,
+        role: data.role || 'BUYER',
+      },
+    });
 
-  const accessToken = jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
-    process.env.ATS as string,
-    { expiresIn: (process.env.ATE as any) || '15m' }
-  );
+    const accessToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.ATS as string,
+      { expiresIn: (process.env.ATE as any) || '15m' }
+    );
 
-  const refreshToken = jwt.sign(
-    { id: user.id },
-    process.env.RTS as string,
-    { expiresIn: (process.env.RTE as any) || '7d' }
-  );
+    const refreshToken = jwt.sign(
+      { id: user.id },
+      process.env.RTS as string,
+      { expiresIn: (process.env.RTE as any) || '7d' }
+    );
 
-  return { user, accessToken, refreshToken };
+    return { user, accessToken, refreshToken };
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      throw new ApiError(409, 'Email already registered');
+    }
+    throw error;
+  }
 };
 
 export const loginUser = async (email: string, password: string) => {
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !user.passwordHash) throw new Error('User not found');
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    include: { supplierProfile: true }
+  });
+  if (!user || !user.passwordHash) throw new ApiError(401, 'Invalid email or password');
 
   const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) throw new Error('Invalid password');
+  if (!valid) throw new ApiError(401, 'Invalid email or password');
 
   const accessToken = jwt.sign(
     { id: user.id, email: user.email, role: user.role },

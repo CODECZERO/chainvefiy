@@ -6,9 +6,10 @@ import QRCode from 'qrcode';
 import { notifySupplier } from '../../services/whatsapp/whatsapp.service.js';
 import { cacheGet, cacheSet, cacheInvalidate, cacheDel, buildCacheKey } from '../../lib/redis.js';
 import { getUSDCtoINRRate } from '../../util/exchangeRate.util.js';
+import { ImgFormater } from '../../util/ipfs.uitl.js';
 
 export const getProducts = async (req: Request, res: Response) => {
-  const { category, status = 'VERIFIED', minPrice, maxPrice, search, page = '1', limit = '20' } = req.query;
+  const { category, status, minPrice, maxPrice, search, page = '1', limit = '20' } = req.query;
 
   const cacheKey = buildCacheKey('products', { category, status, minPrice, maxPrice, search, page, limit });
   const cached = await cacheGet(cacheKey);
@@ -34,14 +35,14 @@ export const getProducts = async (req: Request, res: Response) => {
       Promise.all([
         prisma.product.findMany({
           where,
-          include: { supplier: { select: { name: true, location: true, trustScore: true, isVerified: true } } },
+          include: { supplier: { select: { name: true, location: true, trustScore: true, isVerified: true, stellarWallet: true } } },
           orderBy: { createdAt: 'desc' },
           skip,
           take: parseInt(limit as string),
         }),
         prisma.product.count({ where }),
       ]),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('DB query timeout')), 900)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('DB query timeout')), 5000)),
     ])) as [any[], number];
     products = result[0] as any[];
     total = result[1] as number;
@@ -50,7 +51,12 @@ export const getProducts = async (req: Request, res: Response) => {
     total = 0;
   }
 
-  const data = { products, total, page: parseInt(page as string) };
+  const formattedProducts = await Promise.all(products.map(async (p: any) => ({
+    ...p,
+    proofMediaUrls: await Promise.all((p.proofMediaUrls || []).map((cid: string) => ImgFormater(cid)))
+  })));
+
+  const data = { products: formattedProducts, total, page: parseInt(page as string) };
   await cacheSet(cacheKey, data, 60);
 
   return res.json(new ApiResponse(200, data, products.length ? 'Products fetched' : 'Products fetched (fallback)'));
@@ -67,7 +73,7 @@ export const getProduct = async (req: Request, res: Response) => {
   const product = await prisma.product.findUnique({
     where: { id },
     include: {
-      supplier: { select: { id: true, name: true, location: true, trustScore: true, isVerified: true, whatsappNumber: true } },
+      supplier: { select: { id: true, name: true, location: true, trustScore: true, isVerified: true, whatsappNumber: true, stellarWallet: true } },
       stageUpdates: { orderBy: { stageNumber: 'asc' } },
       votes: { select: { voteType: true, createdAt: true }, take: 10, orderBy: { createdAt: 'desc' } },
     },
@@ -75,8 +81,13 @@ export const getProduct = async (req: Request, res: Response) => {
 
   if (!product) return res.status(404).json(new ApiResponse(404, null, 'Product not found'));
 
-  await cacheSet(productCacheKey, product, 120);
-  return res.json(new ApiResponse(200, product, 'Product fetched'));
+  const formattedProduct = {
+    ...product,
+    proofMediaUrls: await Promise.all((product.proofMediaUrls || []).map((cid: string) => ImgFormater(cid)))
+  };
+
+  await cacheSet(productCacheKey, formattedProduct, 120);
+  return res.json(new ApiResponse(200, formattedProduct, 'Product fetched'));
 };
 
 export const createProduct = async (req: any, res: Response) => {
@@ -104,8 +115,16 @@ export const createProduct = async (req: any, res: Response) => {
     },
   });
 
-  const productUrl = `${process.env.APP_URL || 'http://localhost:3000'}/product/${product.id}`;
-  const qrDataUrl = await QRCode.toDataURL(productUrl, { width: 256 });
+  const appUrl = process.env.APP_URL || 'http://localhost:3000';
+  const productUrl = `${appUrl}/product/${product.id}`;
+  const qrDataUrl = await QRCode.toDataURL(productUrl, { 
+    width: 256,
+    margin: 2,
+    color: {
+      dark: '#000000',
+      light: '#ffffff'
+    }
+  });
   await prisma.product.update({
     where: { id: product.id },
     data: { qrCodeUrl: qrDataUrl }

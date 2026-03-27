@@ -215,8 +215,13 @@ export default function Home() {
                 Browse marketplace <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
-            <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer">
+            <Link href="/seller-dashboard">
               <Button variant="outline" className="px-6 h-11 rounded-xl font-semibold">
+                 Start Selling (Web) <ArrowUpRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+            <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=NEW`} target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost" className="px-6 h-11 rounded-xl font-semibold text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10">
                 <MessageCircle className="w-4 h-4 mr-2" /> Sell via WhatsApp
               </Button>
             </a>

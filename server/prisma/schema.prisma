@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions", "driverAdapters"]
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 
@@ -39,8 +41,17 @@ enum PaymentMethod {
   STELLAR_XLM
   STELLAR_USDC
   STELLAR_OTHER
+  UPI
+  INTERNAL
 }
 
+
+enum BountyStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  EXPIRED
+}
 
 enum VoteType {
   REAL
@@ -87,15 +98,20 @@ model User {
   passwordHash   String?
   role           UserRole @default(BUYER)
   stellarWallet  String?  @unique
+  managedSecret  String? // For backend-managed wallets
   whatsappNumber String?  @unique
+  isVerified     Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   supplierProfile Supplier?
+  buyerProfile    BuyerProfile?
   buyerOrders     Order[]            @relation("BuyerOrders")
   votes           Vote[]
   notifications   Notification[]
   trustTokens     TrustTokenLedger[]
+  issuedBounties  Bounty[]           @relation("IssuerBounties")
+  solvedBounties  Bounty[]           @relation("SolverBounties")
 
   @@map("users")
 }
@@ -109,6 +125,7 @@ model Supplier {
   location       String?
   category       String?
   stellarWallet  String?
+  managedSecret  String? // For backend-managed wallets
   whatsappNumber String   @unique
   trustScore     Float    @default(0)
   totalSales     Int      @default(0)
@@ -151,6 +168,7 @@ model Product {
   votes        Vote[]
   orders       Order[]
   qrCodes      QRCode[]
+  bounties     Bounty[]
 
   @@index([category])
   @@index([status])
@@ -218,6 +236,7 @@ model Order {
   refundTxId          String?
   buyerRating         Int?
   buyerReview         String?
+  qrCodeUrl           String?
 
   qrBuyerToken        String?       @unique
   qrSupplierToken     String?       @unique
@@ -226,6 +245,15 @@ model Order {
   deliveryCertCid     String?
   deliveryCertTxId    String?
   deliveredAt         DateTime?
+
+  // ── Shipping Details snapshot ──────────────────────────────────────
+  shippingFullName    String?
+  shippingPhone        String?
+  shippingAddress     String?
+  shippingCity        String?
+  shippingState       String?
+  shippingPincode      String?
+  shippingCountry     String?      @default("India")
 
   // ── Delivery confirmation ──────────────────────────────────────────
   deliveryConfirmedAt  DateTime?   // when buyer clicked "I received it"
@@ -299,6 +327,23 @@ model Notification {
 
   @@index([userId, isRead])
   @@map("notifications")
+}
+
+model BuyerProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  fullName       String?
+  phoneNumber    String?
+  address        String?
+  city           String?
+  state          String?
+  pincode        String?
+  country        String?  @default("India")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("buyer_profiles")
 }
 
 // ─── Living QR Enums ──────────────────────────────────────────────────────────
@@ -477,6 +522,31 @@ model QRScan {
   @@index([ipCountry])
   @@index([scanSource])
   @@map("qr_scans")
+}
+
+model Bounty {
+  id              String       @id @default(uuid())
+  productId       String
+  product         Product      @relation(fields: [productId], references: [id])
+  issuerId        String?
+  issuer          User?        @relation("IssuerBounties", fields: [issuerId], references: [id])
+  issuerWallet    String?
+  amount          Decimal      @db.Decimal(18, 7)
+  description     String
+  status          BountyStatus @default(PENDING)
+  paymentMethod   PaymentMethod @default(STELLAR_USDC)
+  transactionHash String?       @unique
+  solverId        String?
+  solver          User?        @relation("SolverBounties", fields: [solverId], references: [id])
+  proofCid        String?
+  proofUploadedAt DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([productId])
+  @@index([issuerId])
+  @@index([solverId])
+  @@map("bounties")
 }
 
 generator seed {

@@ -1,5 +1,5 @@
 // Stellar Utils with Real API Integration
-import { getWalletBalance, verifyDonation, createStellarAccount as apiCreateStellarAccount, walletPay, sendPayment, getEscrowXdr, getVoteXdr, getSubmitProofXdr } from './api-service';
+import { getWalletBalance, verifyBountyPayment, createStellarAccount as apiCreateStellarAccount, walletPay, sendPayment, getEscrowXdr, getVoteXdr, getSubmitProofXdr } from './api-service';
 import { kit } from './stellar-kit';
 
 // Mock Stellar SDK classes and functions for frontend compatibility
@@ -115,38 +115,30 @@ const server = new Server("https://horizon-testnet.stellar.org")
 const networkPassphrase = Networks.TESTNET_NETWORK_PASSPHRASE
 
 /**
- * Submit a donation payment on Stellar. Argument order matches the working original repo
- * so the wallet receives a valid XDR and can sign correctly.
+ * Submit a bounty payment on Stellar.
  */
-export async function submitDonationTransaction(
+export async function submitBountyTransaction(
   publicKey: string,
-  receiverPublicKey: string, // Supplier's wallet address (destination of payment)
+  receiverPublicKey: string,
   amount: string,
-  taskId: string,
+  bountyId: string,
   signTransaction: (tx: string) => Promise<string>,
 ) {
   try {
-    // Validate and format amount - Stellar requires string with max 7 decimals
     const amountNumber = parseFloat(amount)
     if (isNaN(amountNumber) || amountNumber <= 0) {
       throw new Error("Invalid amount. Please enter a positive number.")
     }
 
-    // Format to max 7 decimal places as required by Stellar
     const formattedAmount = amountNumber.toFixed(7)
-    // Validate receiver address
     if (!receiverPublicKey || receiverPublicKey.length !== 56 || !receiverPublicKey.startsWith('G')) {
-      throw new Error("Invalid receiver wallet address from post data")
+      throw new Error("Invalid receiver wallet address")
     }
 
-    // Import Stellar SDK dynamically
     const StellarSdk = await import('@stellar/stellar-sdk')
-
-    // Step 1: Load sender account from Stellar network
     const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org')
     const account = await server.loadAccount(publicKey)
 
-    // Step 2: Create payment transaction
     const transaction = new StellarSdk.TransactionBuilder(account, {
       fee: StellarSdk.BASE_FEE,
       networkPassphrase: StellarSdk.Networks.TESTNET,
@@ -155,38 +147,32 @@ export async function submitDonationTransaction(
         StellarSdk.Operation.payment({
           destination: receiverPublicKey,
           asset: StellarSdk.Asset.native(),
-          amount: formattedAmount, // Use formatted amount string
+          amount: formattedAmount,
         })
       )
-      .addMemo(StellarSdk.Memo.text(`Donation`)) // Keep memo short (max 28 bytes)
-      .setTimeout(180) // 3 minutes timeout
+      .addMemo(StellarSdk.Memo.text(`Bounty`))
+      .setTimeout(180)
       .build()
 
-    // Step 3: Convert to XDR for signing (base64 string for wallet)
     const transactionXDR = transaction.toXDR()
-    // Step 4: Sign transaction with wallet (Freighter/Albedo/etc.)
     const signResult = await signTransaction(transactionXDR)
     const signedXDR = typeof signResult === 'string' ? signResult : (signResult as any)?.signedTxXdr ?? (signResult as any)?.signedTransaction ?? ''
+    
     if (!signedXDR) {
       throw new Error('No signed transaction returned from wallet')
     }
-    // Step 5: Parse signed transaction to get hash
+
     const signedTransaction = StellarSdk.TransactionBuilder.fromXDR(
       signedXDR,
       StellarSdk.Networks.TESTNET
     )
     const transactionHash = signedTransaction.hash().toString('hex')
-    // Step 6: Submit transaction to Stellar network
     const result = await server.submitTransaction(signedTransaction)
-    // Step 7: Send transaction data to backend for verification and storage
-    const donationData = {
-      transactionId: transactionHash,
-      postId: taskId,
-      amount: parseFloat(amount),
-      buyerId: publicKey, // Mandatory for backend
-    }
 
-    const response = await verifyDonation(donationData)
+    const response = await verifyBountyPayment({
+      bountyId: bountyId,
+      transactionHash: transactionHash,
+    })
 
     if (response.success) {
       return {
@@ -197,10 +183,9 @@ export async function submitDonationTransaction(
         data: response.data
       }
     } else {
-      throw new Error(response.message || "Donation verification failed")
+      throw new Error(response.message || "Bounty verification failed")
     }
   } catch (error) {
-    // Provide more detailed error messages
     if (error instanceof Error) {
       if (error.message.includes('op_underfunded')) {
         throw new Error("Insufficient XLM balance to complete transaction")
@@ -210,7 +195,6 @@ export async function submitDonationTransaction(
         throw new Error("Account not found on Stellar network. Please fund your account first.")
       }
     }
-
     throw error
   }
 }
@@ -305,6 +289,7 @@ export async function submitEscrowTransaction(
     lockedAmount: number; // 50% typically
     taskId: string;
     deadline: number; // Unix timestamp
+    asset?: string;
   },
   signTransaction: (tx: string) => Promise<string>
 ) {
@@ -370,13 +355,10 @@ export async function submitEscrowTransaction(
     console.log("[STELLAR] Transaction confirmed successfully!");
 
     // 5. Create Donation Record (Backend)
-    // Now that transaction is SUCCESS, backend verifyDonation will find it on-chain
-    await verifyDonation({
-      transactionId: transactionHash,
-      postId: data.taskId,
-      amount: data.totalAmount, // Record full amount
-      buyerId: data.buyerPublicKey, // Mandatory for backend
-      escrowId: response.data.escrowId, // Pass the unique ID generated by backend
+    // Now that transaction is SUCCESS, backend verifyBountyPayment will find it on-chain
+    await verifyBountyPayment({
+      transactionHash: transactionHash,
+      bountyId: data.taskId,
     });
 
     return {

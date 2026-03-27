@@ -4,9 +4,10 @@ import { useEffect, useState } from "react"
 import { Header } from "@/components/header"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 import { useWallet } from "@/lib/wallet-context"
 import { WalletRequirement } from "@/components/wallet-requirement"
-import { Loader2, Package, QrCodeIcon, ScanLine, ArrowRight } from "lucide-react"
+import { Loader2, Package, QrCodeIcon, ScanLine, ArrowRight, Lock } from "lucide-react"
 import { useSelector } from "react-redux"
 import type { RootState } from "@/lib/redux/store"
 
@@ -36,6 +37,26 @@ export default function BuyerDashboard() {
     }
     loadOrders()
   }, [user?.id, publicKey])
+
+  if (user && user.role !== "BUYER") {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Header />
+        <div className="max-w-md mx-auto px-4 py-20 text-center">
+          <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Lock className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Buyer Access Only</h1>
+          <p className="text-muted-foreground mb-8">
+            This dashboard is for buyers. Please use your buyer account or switch roles.
+          </p>
+          <Link href="/">
+            <Button variant="outline" className="rounded-xl">Go Home</Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   if (!user?.id && !publicKey) {
      return (
@@ -68,26 +89,33 @@ export default function BuyerDashboard() {
         ) : (
           <div className="grid gap-6 mt-8">
             {orders.map((order, i) => (
-              <Card key={i} className="p-6 flex flex-col md:flex-row gap-6 overflow-hidden relative border-border">
-                <div className="flex-1">
+              <Card key={i} className="p-6 flex flex-col md:flex-row gap-6 overflow-hidden relative border-border items-center md:items-start text-center md:text-left">
+                <div className="w-24 h-24 md:w-32 md:h-32 shrink-0 bg-muted rounded-2xl overflow-hidden border">
+                  {order.product?.proofMediaUrls?.[0] ? (
+                    <img src={order.product.proofMediaUrls[0]} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center"><Package className="w-8 h-8 opacity-20" /></div>
+                  )}
+                </div>
+                <div className="flex-1 w-full">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="text-xl font-bold">{order.product?.title || "Unknown Product"}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">Supplier: {order.product?.supplier?.name || "Unknown"}</p>
+                      <h3 className="text-xl font-bold">{String(order.product?.title || "Unknown Product")}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">Supplier: {String(order.product?.supplier?.name || "Unknown")}</p>
                     </div>
                     <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-semibold tracking-wide">
-                      {order.status}
+                      {String(order.status || "")}
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4 text-sm mb-6 bg-muted/50 p-4 rounded-xl">
                     <div>
                       <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Amount</p>
-                      <p className="font-medium font-mono text-lg">₹{order.priceInr}</p>
+                      <p className="font-medium font-mono text-lg">₹{String(order.priceInr || 0)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Date</p>
-                      <p className="font-medium">{new Date(order.createdAt).toLocaleDateString()}</p>
+                      <p className="font-medium">{String(new Date(order.createdAt).toLocaleDateString())}</p>
                     </div>
                   </div>
 

@@ -13,6 +13,7 @@ if (!process.env.PINATA_GATEWAY) {
 const pinata = new PinataSDK({
   pinataJwt: process.env.PINATA_JWT,
   pinataGateway: process.env.PINATA_GATEWAY,
+  pinataGatewayKey: process.env.PINATA_GATEWAY_KEY,
 });
 
 const retriveFromIpfs = async (cid: string) => {
@@ -59,11 +60,15 @@ const uploadOnIpfsBill = async (data: Express.Multer.File) => {
 
     const file = new File([fileBuffer], data.originalname, { type: data.mimetype });
 
+    console.log(`🚀 Uploading ${data.originalname} to Pinata...`);
     const uploadData = await pinata.upload.public.file(file);
 
     if (!uploadData || !uploadData.cid) {
+      console.error('❌ Pinata upload failed: No CID returned');
       throw new Error('No CID returned from Pinata');
     }
+
+    console.log('✅ Pinata upload successful, CID:', uploadData.cid);
 
     // Clean up the uploaded file from local storage
     try {

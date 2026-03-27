@@ -6,9 +6,14 @@ import { cacheDel } from '../../lib/redis.js';
 import { getUSDCtoINRRate } from '../../util/exchangeRate.util.js';
 import jwt from 'jsonwebtoken';
 import { uploadOnIpfs } from '../../services/ipfs(pinata)/ipfs.services.js';
+import QRCode from 'qrcode';
 
 export const placeOrder = async (req: any, res: Response) => {
-  const { productId, buyerId, quantity = 1, paymentMethod, sourceCurrency, sourceAmount, escrowTxId, pathPaymentTxId, stellarWallet } = req.body;
+  const { 
+    productId, buyerId, quantity = 1, paymentMethod, sourceCurrency, sourceAmount, 
+    escrowTxId, pathPaymentTxId, stellarWallet,
+    shippingFullName, shippingPhone, shippingAddress, shippingCity, shippingState, shippingPincode, shippingCountry 
+  } = req.body;
 
   let finalBuyerId = buyerId;
 
@@ -51,6 +56,13 @@ export const placeOrder = async (req: any, res: Response) => {
       status: 'PAID',
       escrowTxId,
       pathPaymentTxId,
+      shippingFullName,
+      shippingPhone,
+      shippingAddress,
+      shippingCity,
+      shippingState,
+      shippingPincode,
+      shippingCountry
     },
   });
 
@@ -58,9 +70,18 @@ export const placeOrder = async (req: any, res: Response) => {
   const qrBuyerToken = jwt.sign({ orderId: order.id, role: 'BUYER' }, qrSecret);
   const qrSupplierToken = jwt.sign({ orderId: order.id, role: 'SUPPLIER' }, qrSecret);
 
-  const updatedOrder = await prisma.order.update({
+  // Generate unique buyer journey QR
+  const appUrl = process.env.APP_URL || 'http://localhost:3000';
+  const buyerJourneyUrl = `${appUrl}/order/${order.id}/journey?token=${qrBuyerToken}`;
+  const qrBuyerDataUrl = await QRCode.toDataURL(buyerJourneyUrl, { 
+    width: 256,
+    margin: 2,
+    color: { dark: '#000000', light: '#ffffff' }
+  });
+
+  const finalOrder = await (prisma.order as any).update({
     where: { id: order.id },
-    data: { qrBuyerToken, qrSupplierToken }
+    data: { qrBuyerToken, qrSupplierToken, qrCodeUrl: qrBuyerDataUrl }
   });
 
   await notifySupplier(product.supplierId, 'ORDER_RECEIVED', {
@@ -74,7 +95,7 @@ export const placeOrder = async (req: any, res: Response) => {
 
   await cacheDel(`product:${productId}`);
 
-  return res.status(201).json(new ApiResponse(201, updatedOrder, 'Order placed'));
+  return res.status(201).json(new ApiResponse(201, finalOrder, 'Order placed with unique journey QR'));
 };
 
 export const getBuyerOrders = async (req: any, res: Response) => {
@@ -105,7 +126,12 @@ export const getOrderStatus = async (req: any, res: Response) => {
   const order = await prisma.order.findUnique({
     where: { id: req.params.id },
     include: {
-      product: { select: { title: true, priceInr: true, supplier: { select: { name: true } } } },
+      product: { 
+        include: { 
+          supplier: { select: { name: true } },
+          stageUpdates: { orderBy: { createdAt: 'desc' } }
+        } 
+      },
       buyer: { select: { email: true } },
     },
   });

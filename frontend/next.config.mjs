@@ -4,7 +4,27 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    domains: ['azure-official-egret-883.mypinata.cloud'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'api.qrserver.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'azure-official-egret-883.mypinata.cloud',
+        port: '',
+        pathname: '/ipfs/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+        port: '',
+        pathname: '/**',
+      },
+    ],
   },
   // Transpile packages that might have issues
   transpilePackages: ['react-is', 'lucide-react', '@creit.tech/stellar-wallets-kit'],
@@ -16,7 +36,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://freighter.app https://albedo.link https://va.vercel-scripts.com; connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 https://va.vercel-scripts.com *.stellar.org *.soroban.org https://*.onrender.com; object-src 'none';",
+            value: "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://freighter.app https://albedo.link https://va.vercel-scripts.com; connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 https://va.vercel-scripts.com *.stellar.org *.soroban.org https://*.onrender.com https://api.coingecko.com https://api.qrserver.com *.pinata.cloud; img-src 'self' http://localhost:8000 http://127.0.0.1:8000 https://api.qrserver.com *.pinata.cloud blob: data:; object-src 'none';",
           },
         ],
       },

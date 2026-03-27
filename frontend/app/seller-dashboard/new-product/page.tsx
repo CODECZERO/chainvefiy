@@ -11,8 +11,9 @@ import { getUSDCInrRate } from "@/lib/exchange-rates"
 import {
   ChevronLeft, MessageCircle, Info, Image as ImageIcon,
   UploadCloud, X, Check, QrCode, Share2, Plus, ArrowRight,
-  Wheat, Palette, Shirt, Apple, Brush, Package
+  Wheat, Palette, Shirt, Apple, Brush, Package, Loader2
 } from "lucide-react"
+import { ipfsImageUrl } from "@/lib/ipfs"
 
 const CATEGORIES = [
   { id: 1, label: "Agriculture", icon: <Wheat className="w-5 h-5" /> },
@@ -42,13 +43,36 @@ export default function NewProductWizard() {
     getUSDCInrRate().then(setUsdcInr).catch(() => {})
   }, [])
 
-  const handleImageDrop = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Mock local preview using object URL
+  const uploadToIpfs = async (file: File) => {
+    const formData = new FormData()
+    formData.append("file", file)
+    try {
+      const res = await fetch(`${api}/ipfs/upload`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.data?.cid) {
+        return data.data.cid
+      }
+      throw new Error("Upload failed")
+    } catch (e) {
+      console.error("IPFS upload error:", e)
+      return null
+    }
+  }
+
+  const handleImageDrop = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0]
-      const url = URL.createObjectURL(file)
-      setImages(prev => [...prev, url])
-      // Real app would upload to IPFS/S3 here
+      // Show local preview immediately (optional, but better UX would be to show loading)
+      setLoading(true)
+      const cid = await uploadToIpfs(file)
+      if (cid) {
+        setImages(prev => [...prev, cid])
+      }
+      setLoading(false)
     }
   }
 
@@ -63,6 +87,7 @@ export default function NewProductWizard() {
       const cat = CATEGORIES.find((c) => c.id === category)?.label || "Other"
       const res = await fetch(`${api}/products`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           supplierId: sid,
@@ -231,7 +256,7 @@ export default function NewProductWizard() {
                   <div className="flex gap-3 overflow-x-auto pb-2">
                     {images.map((img, idx) => (
                       <div key={idx} className="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden border border-[#1F2D40] group">
-                        <img src={img} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                        <img src={ipfsImageUrl(img)} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <button onClick={() => removeImage(idx)} className="p-2 bg-red-500 rounded-full text-white hover:bg-red-600 hover:scale-110 transition-transform">
                             <X className="w-4 h-4" />
@@ -255,8 +280,17 @@ export default function NewProductWizard() {
                 Back to Details
               </button>
               <Button onClick={submitProduct} disabled={loading || images.length === 0} className="bg-[#E8772E] hover:bg-[#d96a24] h-12 px-8 rounded-xl text-md font-semibold font-sans relative overflow-hidden">
-                {loading ? "Creating..." : "List Product"}
-                {!loading && <Check className="w-4 h-4 ml-2" />}
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    List Product
+                    <Check className="w-4 h-4 ml-2" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -272,7 +306,7 @@ export default function NewProductWizard() {
             
             <h1 className="text-3xl font-bold mb-3">Listing created!</h1>
             <p className="text-[#9CA3AF] mb-8">
-              Your product "{title}" has been submitted to the community queue. Verification usually takes 10-15 minutes.
+              Your product "{String(title || "")}" has been submitted to the community queue. Verification usually takes 10-15 minutes.
             </p>
 
             <div className="bg-[#111827] border border-[#1F2D40] rounded-3xl p-8 mb-8 relative overflow-hidden">
