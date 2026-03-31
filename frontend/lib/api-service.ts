@@ -131,11 +131,18 @@ export const walletPay = (data: any) =>
 export const sendPayment = (data: any) =>
   apiFetch('/payment/send', { method: 'POST', body: JSON.stringify(data) });
 export const getEscrowXdr = (data: any) =>
-  apiFetch('/contracts/escrow/xdr', { method: 'POST', body: JSON.stringify(data) });
+  apiFetch('/contracts/escrow/create-escrow/xdr', { method: 'POST', body: JSON.stringify(data) });
 export const getVoteXdr = (data: any) =>
-  apiFetch('/contracts/vote/xdr', { method: 'POST', body: JSON.stringify(data) });
+  apiFetch('/contracts/escrow/vote/xdr', { method: 'POST', body: JSON.stringify(data) });
 export const getSubmitProofXdr = (data: any) =>
-  apiFetch('/contracts/proof/xdr', { method: 'POST', body: JSON.stringify(data) });
+  apiFetch('/contracts/escrow/submit-proof/xdr', { method: 'POST', body: JSON.stringify(data) });
+export const submitEscrowTx = (data: { signedXdr: string }) =>
+  apiFetch('/contracts/escrow/submit', { method: 'POST', body: JSON.stringify(data) });
 
 export const getSupplierOrders = () => apiFetch('/user/supplier/orders');
+
+export const getVerificationStatus = (productId?: string) => {
+  const q = productId ? `?productId=${productId}` : '';
+  return apiFetch(`/verification/status${q}`);
+};
 

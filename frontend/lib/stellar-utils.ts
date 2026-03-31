@@ -1,5 +1,5 @@
 // Stellar Utils with Real API Integration
-import { getWalletBalance, verifyBountyPayment, createStellarAccount as apiCreateStellarAccount, walletPay, sendPayment, getEscrowXdr, getVoteXdr, getSubmitProofXdr } from './api-service';
+import { getWalletBalance, verifyBountyPayment, createStellarAccount as apiCreateStellarAccount, walletPay, sendPayment, getEscrowXdr, getVoteXdr, getSubmitProofXdr, submitEscrowTx } from './api-service';
 import { kit } from './stellar-kit';
 
 // Mock Stellar SDK classes and functions for frontend compatibility
@@ -157,7 +157,7 @@ export async function submitBountyTransaction(
     const transactionXDR = transaction.toXDR()
     const signResult = await signTransaction(transactionXDR)
     const signedXDR = typeof signResult === 'string' ? signResult : (signResult as any)?.signedTxXdr ?? (signResult as any)?.signedTransaction ?? ''
-    
+
     if (!signedXDR) {
       throw new Error('No signed transaction returned from wallet')
     }
@@ -294,86 +294,44 @@ export async function submitEscrowTransaction(
   signTransaction: (tx: string) => Promise<string>
 ) {
   try {
-
-
-    // 1. Get XDR from Backend
-    console.log("[STELLAR] Requesting Escrow XDR for task:", data.taskId);
+    // 1. Get Unified XDR from Backend (classic payments + Soroban contract call combined)
+    console.log("[STELLAR] Requesting Unified Escrow XDR for task:", data.taskId);
     const response = await getEscrowXdr(data);
+    console.log("[STELLAR] Raw Escrow API Response Data:", JSON.stringify(response.data, null, 2));
+
     if (!response.success || !response.data?.xdr) {
       console.error("[STELLAR] XDR Generation Failed:", response);
-      throw new Error(response.message || "Failed to generate Escrow XDR");
+      throw new Error(response.message || "Failed to generate Escrow XDRs");
     }
-    const xdr = response.data.xdr;
-    console.log("[STELLAR] XDR Received, length:", xdr.length);
+    const { xdr, classicFallback } = response.data;
+    console.log(`[STELLAR] Unified XDR received. Soroban Status: ${classicFallback ? '⚠️ skipped (contract unavailable)' : '✅ Active'}`);
 
-    // 2. Sign XDR
-    console.log("[STELLAR] Calling signTransaction...");
-    const signedXDR = await signTransaction(xdr);
-    console.log("[STELLAR] signTransaction result received");
+    // 2. Sign Unified TX (payments + escrow logging in one popup)
+    console.log("[STELLAR] Requesting wallet signature for unified transaction...");
+    const signedResult = await signTransaction(xdr);
+    const signedXdr = typeof signedResult === 'string'
+      ? signedResult
+      : (signedResult as any)?.signedTxXdr ?? (signedResult as any)?.txXdr ?? signedResult;
+    console.log("[STELLAR] Unified TX signed successfully by wallet");
 
-    // 3. Submit to Network
-    const StellarSdk = await import('@stellar/stellar-sdk');
-    // Using RPC server for Soroban transactions (Escrow involves Soroban)
-    const sorobanServer = new StellarSdk.rpc.Server('https://soroban-testnet.stellar.org');
+    // 3. Submit to Backend
+    console.log("[STELLAR] Submitting signed transaction to backend...");
+    const submitResponse = await submitEscrowTx({ signedXdr });
 
-    console.log("[STELLAR] Parsing signed XDR...");
-    const signedTransaction = StellarSdk.TransactionBuilder.fromXDR(
-      signedXDR,
-      StellarSdk.Networks.TESTNET
-    );
-    const transactionHash = signedTransaction.hash().toString('hex');
-    console.log("[STELLAR] Transaction Hash:", transactionHash);
-
-    console.log("[STELLAR] Sending transaction to RPC...");
-    const sendResult = await sorobanServer.sendTransaction(signedTransaction);
-    console.log("[STELLAR] RPC Submission status:", sendResult.status);
-
-    if (sendResult.status === 'ERROR') {
-      console.error("[STELLAR] RPC Submission Error:", sendResult);
-      throw new Error("Transaction submission failed: " + JSON.stringify(sendResult.errorResult));
+    if (!submitResponse.success) {
+      throw new Error(submitResponse.message || "Backend submission failed");
     }
 
-    // 4. Wait for transaction to be confirmed (Polling)
-    console.log("[STELLAR] Waiting for transaction confirmation...");
-    let txResponse = await sorobanServer.getTransaction(transactionHash);
-    let polls = 0;
-    const maxPolls = 30; // 30 seconds max wait
-
-    // Note: status types from SDK are SUCCESS, FAILED, NOT_FOUND, PENDING
-    while ((txResponse.status as any === 'NOT_FOUND' || txResponse.status as any === 'PENDING') && polls < maxPolls) {
-      await new Promise(res => setTimeout(res, 1000));
-      txResponse = await sorobanServer.getTransaction(transactionHash);
-      polls++;
-      if (polls % 5 === 0) console.log(`[STELLAR] Still waiting... (${polls}s)`);
-    }
-
-    if (txResponse.status !== 'SUCCESS') {
-      console.error("[STELLAR] Transaction failed or timed out:", txResponse);
-      throw new Error(`Transaction failed with status: ${txResponse.status}`);
-    }
-
-    console.log("[STELLAR] Transaction confirmed successfully!");
-
-    // 5. Create Donation Record (Backend)
-    // Now that transaction is SUCCESS, backend verifyBountyPayment will find it on-chain
-    await verifyBountyPayment({
-      transactionHash: transactionHash,
-      bountyId: data.taskId,
-    });
+    console.log("[STELLAR] Backend confirmed transaction(s):", submitResponse.data.hash);
 
     return {
       success: true,
-      hash: transactionHash,
-      ledger: (txResponse as any).latestLedger || (txResponse as any).ledger || 0,
-      stellarResult: txResponse,
+      hash: submitResponse.data.hash,
+      stellarResult: submitResponse.data,
     };
 
-  } catch (error) {
-
-    // Parse Horizon error
-    if ((error as any).response?.data?.extras?.result_codes) {
-      // Error details captured
-    }
+  } catch (error: any) {
+    console.error("[STELLAR] Escrow flow failed:", error);
     throw error;
   }
 }

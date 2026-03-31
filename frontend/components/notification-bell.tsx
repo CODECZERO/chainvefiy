@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Bell, CheckCheck, Package, ShieldCheck, Wallet } from "lucide-react"
+import { useSelector } from "react-redux"
+import type { RootState } from "@/lib/redux/store"
 
 const ICONS: Record<string, any> = {
   PRODUCT_VERIFIED: <ShieldCheck className="w-4 h-4 text-emerald-400" />,
@@ -12,6 +14,7 @@ const ICONS: Record<string, any> = {
 }
 
 export function NotificationBell() {
+  const { publicKey } = useSelector((state: RootState) => state.wallet)
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
   const [unread, setUnread] = useState(0)
@@ -23,11 +26,13 @@ export function NotificationBell() {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
     document.addEventListener("mousedown", handler)
     return () => document.removeEventListener("mousedown", handler)
-  }, [])
+  }, [publicKey])
 
   const fetchUnread = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`, { credentials: "include" })
+      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/notifications/unread-count`)
+      if (publicKey) url.searchParams.append('stellarWallet', publicKey)
+      const res = await fetch(url.toString(), { credentials: "include" })
       const data = await res.json()
       setUnread(data.data?.count || 0)
     } catch {}
@@ -35,7 +40,9 @@ export function NotificationBell() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications`, { credentials: "include" })
+      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/notifications`)
+      if (publicKey) url.searchParams.append('stellarWallet', publicKey)
+      const res = await fetch(url.toString(), { credentials: "include" })
       const data = await res.json()
       setNotifications(data.data || [])
     } catch {}
@@ -43,7 +50,12 @@ export function NotificationBell() {
 
   const markAllRead = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/read-all`, { method: "PATCH", credentials: "include" })
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/notifications/read-all`, { 
+        method: "PATCH", 
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stellarWallet: publicKey })
+      })
       setUnread(0)
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
     } catch {}

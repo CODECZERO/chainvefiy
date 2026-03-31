@@ -11,34 +11,17 @@ import {
 import Link from "next/link"
 import { convertInrToUsdc, getUSDCInrRate } from "@/lib/exchange-rates"
 import { ProductCard } from "@/components/product-card"
+import { motion } from "framer-motion"
 
 const CATEGORIES = [
-  { name: "All", icon: <LayoutGrid className="w-3.5 h-3.5" /> },
-  { name: "Food & Spices", icon: <Leaf className="w-3.5 h-3.5" /> },
-  { name: "Textiles", icon: <ShoppingBag className="w-3.5 h-3.5" /> },
-  { name: "Handicrafts", icon: <Palette className="w-3.5 h-3.5" /> },
-  { name: "Agriculture", icon: <Sparkles className="w-3.5 h-3.5" /> },
-  { name: "Electronics", icon: <Cpu className="w-3.5 h-3.5" /> },
-  { name: "Jewelry", icon: <Gem className="w-3.5 h-3.5" /> },
+  { name: "All", icon: <LayoutGrid className="w-4 h-4" /> },
+  { name: "Food & Spices", icon: <Leaf className="w-4 h-4" /> },
+  { name: "Textiles", icon: <ShoppingBag className="w-4 h-4" /> },
+  { name: "Handicrafts", icon: <Palette className="w-4 h-4" /> },
+  { name: "Agriculture", icon: <Sparkles className="w-4 h-4" /> },
+  { name: "Electronics", icon: <Cpu className="w-4 h-4" /> },
+  { name: "Jewelry", icon: <Gem className="w-4 h-4" /> },
 ]
-
-const STATUS_BADGE: Record<string, { label: string; class: string; icon: ReactNode }> = {
-  VERIFIED: {
-    label: "Verified",
-    class: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    icon: <CheckCircle2 className="w-3 h-3" />,
-  },
-  PENDING_VERIFICATION: {
-    label: "Pending",
-    class: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    icon: <Clock className="w-3 h-3" />,
-  },
-  FLAGGED: {
-    label: "Flagged",
-    class: "bg-red-500/10 text-red-400 border-red-500/20",
-    icon: <XCircle className="w-3 h-3" />,
-  },
-}
 
 interface Product {
   id: string
@@ -63,13 +46,8 @@ export default function Marketplace() {
   const [sortBy, setSortBy] = useState<"newest" | "price-low" | "price-high" | "most-voted">("newest")
   const [usdcInr, setUsdcInr] = useState<number>(83.33)
 
-  useEffect(() => {
-    loadProducts()
-  }, [category, verifiedOnly])
-
-  useEffect(() => {
-    getUSDCInrRate().then(setUsdcInr).catch(() => {})
-  }, [])
+  useEffect(() => { loadProducts() }, [category, verifiedOnly])
+  useEffect(() => { getUSDCInrRate().then(setUsdcInr).catch(() => {}) }, [])
 
   const loadProducts = async () => {
     try {
@@ -81,7 +59,7 @@ export default function Marketplace() {
       const data = await res.json()
       setProducts(data.data?.products || [])
     } catch {
-      setProducts(MOCK_PRODUCTS)
+      setProducts([])
     } finally {
       setLoading(false)
     }
@@ -99,116 +77,149 @@ export default function Marketplace() {
     })
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground pb-24">
       <Header />
-      <div className="max-w-7xl mx-auto px-4 py-10">
-        {/* Title */}
-        <div className="mb-10">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-            <span className="gradient-text">Marketplace</span>
-          </h1>
-          <p className="text-slate-400 mt-3 text-lg">Browse community-verified products from trusted suppliers</p>
-        </div>
-
-        {/* Search + Sort */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <Input
-              placeholder="Search products..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-11 rounded-2xl h-12 text-sm"
-            />
+      
+      {/* ── Page Header ── */}
+      <div className="relative border-b border-white/[0.04] bg-[#0A0D14] overflow-hidden">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-orange-500/10 blur-[100px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/3" />
+        <div className="max-w-7xl mx-auto px-4 py-16 md:py-24 relative z-10">
+          <div className="max-w-3xl">
+            <span className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-4 py-2 rounded-full text-sm font-bold uppercase tracking-widest mb-6">
+              <Sparkles className="w-4 h-4" /> Open Marketplace
+            </span>
+            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
+              Verified Products.<br/>
+              <span className="text-glow-orange text-orange-400">Trusted Suppliers.</span>
+            </h1>
+            <p className="text-lg md:text-xl text-slate-400 leading-relaxed max-w-2xl">
+              Discover authentic goods powered by community consensus. Every item is backed by immutable proof and secure escrow payments.
+            </p>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Verified Only toggle */}
-            <button
-              onClick={() => setVerifiedOnly(!verifiedOnly)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-medium border transition-all ${
-                verifiedOnly
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                  : "bg-background border-border text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" /> Verified Only
-            </button>
+        </div>
+      </div>
 
-            {/* Sort dropdown */}
-            <div className="relative">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="appearance-none bg-background border border-border text-foreground rounded-2xl px-4 py-3 pr-10 text-sm cursor-pointer hover:bg-accent transition-colors focus:outline-none"
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        
+        {/* ── Filters & Search ── */}
+        <div className="premium-card rounded-3xl p-4 md:p-6 mb-12 shadow-2xl">
+          <div className="flex flex-col lg:flex-row gap-6">
+            
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <Input
+                placeholder="Search verified products..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-14 rounded-2xl h-14 text-base bg-[#0C0F17] border-white/[0.06] focus-visible:ring-orange-500 focus-visible:border-orange-500 shadow-inner"
+              />
+            </div>
+            
+            {/* Toggles & Sort */}
+            <div className="flex flex-wrap items-center gap-4">
+              <button
+                onClick={() => setVerifiedOnly(!verifiedOnly)}
+                className={`flex items-center gap-2.5 px-6 py-4 rounded-2xl text-sm font-bold transition-all border-2 ${
+                  verifiedOnly
+                    ? "bg-emerald-500/15 border-emerald-500 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                    : "bg-[#0C0F17] border-white/[0.06] text-slate-400 hover:border-slate-500 hover:text-white"
+                }`}
               >
-                <option value="newest">Newest</option>
-                <option value="price-low">Price: Low → High</option>
-                <option value="price-high">Price: High → Low</option>
-                <option value="most-voted">Most Voted</option>
-              </select>
-              <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+                <CheckCircle2 className={`w-5 h-5 ${verifiedOnly ? "text-emerald-400" : "text-slate-500"}`} /> 
+                Show Verified Only
+              </button>
+
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="appearance-none bg-[#0C0F17] border-2 border-white/[0.06] text-white font-semibold rounded-2xl px-6 py-4 pr-12 text-sm cursor-pointer hover:border-slate-500 transition-colors focus:outline-none focus:border-orange-500 h-[56px]"
+                >
+                  <option value="newest">Sort: Newest First</option>
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                  <option value="most-voted">Most Community Votes</option>
+                </select>
+                <ArrowUpDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
             </div>
           </div>
+
+          {/* Categories */}
+          <div className="flex gap-3 overflow-x-auto pb-2 pt-6 mt-6 border-t border-white/[0.06] custom-scrollbar">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.name}
+                onClick={() => setCategory(c.name)}
+                className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap border-2 ${
+                  category === c.name
+                    ? "bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/30"
+                    : "bg-transparent border-white/[0.06] text-slate-400 hover:bg-white/[0.03] hover:text-white"
+                }`}
+              >
+                {c.icon} {c.name}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Category pills */}
-        <div className="flex gap-2 flex-wrap mb-10">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.name}
-              onClick={() => setCategory(c.name)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-medium transition-all border ${
-                category === c.name
-                  ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                  : "bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground"
-              }`}
-            >
-              {c.icon} {c.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Product Grid */}
+        {/* ── Product Grid ── */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="glass-card rounded-3xl overflow-hidden">
-                <div className="h-48 bg-white/[0.02] animate-shimmer" />
-                <div className="p-5 space-y-4">
-                  <div className="h-5 bg-white/[0.04] rounded-lg w-3/4 animate-shimmer" />
-                  <div className="h-4 bg-white/[0.03] rounded-lg w-1/2 animate-shimmer" />
-                  <div className="h-10 bg-white/[0.03] rounded-2xl animate-shimmer" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="premium-card rounded-3xl overflow-hidden h-[450px]">
+                <div className="h-56 bg-white/[0.02] animate-pulse" />
+                <div className="p-6 space-y-5">
+                  <div className="h-6 bg-white/[0.04] rounded-lg w-3/4 animate-pulse" />
+                  <div className="h-4 bg-white/[0.03] rounded-lg w-1/2 animate-pulse" />
+                  <div className="h-12 bg-white/[0.03] rounded-2xl animate-pulse mt-8" />
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((p, i) => (
-              <ProductCard key={p.id} task={p} index={i} usdcInr={usdcInr} />
-            ))}
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {filtered.map((p, i) => (
+                <ProductCard key={p.id} task={p} index={i} usdcInr={usdcInr} />
+              ))}
+            </div>
+            
             {filtered.length === 0 && (
-              <div className="col-span-3 text-center py-24">
-                <div className="w-20 h-20 mx-auto mb-5 rounded-3xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-                  <Package className="w-8 h-8 text-slate-600" />
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full max-w-2xl mx-auto text-center py-24 premium-card rounded-[3rem] mt-12"
+              >
+                <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-[#0C0F17] flex items-center justify-center border border-white/[0.06] shadow-inner">
+                  <Package className="w-10 h-10 text-slate-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-300">No products found</h3>
-                <p className="text-sm text-slate-500 mt-2">Try a different search or category filter</p>
-              </div>
+                <h3 className="text-2xl font-bold text-white mb-3">No products match your search</h3>
+                <p className="text-base text-slate-400 mb-8 max-w-sm mx-auto">
+                  Try adjusting your filters, trying a different category, or removing your search term.
+                </p>
+                <Button 
+                  onClick={() => { setSearch(""); setCategory("All"); setVerifiedOnly(false); }}
+                  className="rounded-xl h-12 px-8 font-bold border-white/[0.1] bg-[#0C0F17] hover:bg-white hover:text-black transition-all"
+                  variant="outline"
+                >
+                  Clear All Filters
+                </Button>
+              </motion.div>
             )}
-          </div>
+          </>
         )}
 
-        {/* Results count */}
+        {/* ── Results count ── */}
         {!loading && filtered.length > 0 && (
-          <div className="mt-8 text-center text-sm text-slate-500">
-            Showing <span className="text-slate-300 font-medium">{filtered.length}</span> product{filtered.length !== 1 ? "s" : ""}
+          <div className="mt-16 text-center">
+            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0C0F17] border border-white/[0.06] text-sm text-slate-400 shadow-inner">
+              Showing <strong className="text-white mx-1">{filtered.length}</strong> products
+            </div>
           </div>
         )}
       </div>
     </div>
   )
 }
-
-// No mock products - taking real time data
-const MOCK_PRODUCTS: Product[] = []

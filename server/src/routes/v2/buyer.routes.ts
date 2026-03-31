@@ -4,7 +4,7 @@ import { verifyJWT } from '../../midelware/verify.midelware.js';
 
 const router = Router();
 
-router.get('/', verifyJWT, getBuyerProfile);
-router.put('/', verifyJWT, updateBuyerProfile);
+router.get('/', getBuyerProfile);
+router.put('/', updateBuyerProfile);
 
 export default router;

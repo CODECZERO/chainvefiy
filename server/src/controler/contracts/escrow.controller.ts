@@ -12,7 +12,7 @@ const buildCreateEscrowTx = AsyncHandler(async (req: Request, res: Response) => 
     throw new ApiError(400, 'Missing required fields');
   }
 
-  const xdr = await escrowService.buildCreateEscrowTx(
+  const { xdr, classicFallback } = await escrowService.buildCreateEscrowTx(
     buyerPublicKey,
     supplierPublicKey,
     totalAmount,
@@ -22,7 +22,7 @@ const buildCreateEscrowTx = AsyncHandler(async (req: Request, res: Response) => 
     asset
   );
 
-  return res.status(200).json(new ApiResponse(200, { xdr }, 'Escrow creation transaction built'));
+  return res.status(200).json(new ApiResponse(200, { xdr, classicFallback }, 'Escrow transaction built'));
 });
 
 const buildSubmitProofTx = AsyncHandler(async (req: Request, res: Response) => {
@@ -164,10 +164,28 @@ const getPlatformStats = AsyncHandler(async (req: Request, res: Response) => {
   return res.status(200).json(new ApiResponse(200, stats, 'Platform stats retrieved'));
 });
 
+const submitEscrowTx = AsyncHandler(async (req: Request, res: Response) => {
+  const { signedXdr } = req.body;
+  
+  if (!signedXdr) {
+    throw new ApiError(400, 'signedXdr is required');
+  }
+
+  console.log('[STELLAR] Submitting unified escrow TX...');
+  const result = await escrowService.submitTransaction(signedXdr);
+  console.log(`[STELLAR] Transaction confirmed: ${result.hash}`);
+
+  return res.status(200).json(new ApiResponse(200, {
+    hash: result.hash,
+    status: result.status
+  }, 'Escrow transaction submitted and verified'));
+});
+
 export {
   buildCreateEscrowTx,
   buildSubmitProofTx,
   buildVoteTx,
+  submitEscrowTx,
   releaseEscrow,
   disputeEscrow,
   refundEscrow,

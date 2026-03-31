@@ -171,10 +171,22 @@ export function Header() {
                 </button>
                 {userMenuOpen && (
                   <div className="absolute right-0 top-12 rounded-2xl shadow-2xl w-52 py-2 z-50 border border-border bg-popover text-popover-foreground">
-                    <Link href="/seller-dashboard" onClick={() => setUserMenuOpen(false)}
+                    <Link href="/profile" onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl mx-1 transition-colors">
-                      <LayoutGrid className="w-4 h-4" /> Seller Dashboard
+                      <User className="w-4 h-4" /> My Profile
                     </Link>
+                    {isSupplier && (
+                      <Link href="/seller-dashboard" onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl mx-1 transition-colors">
+                        <LayoutGrid className="w-4 h-4" /> Seller Dashboard
+                      </Link>
+                    )}
+                    {isSupplier && (
+                      <Link href="/whatsapp-setup" onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl mx-1 transition-colors">
+                        <MessageCircle className="w-4 h-4" /> WhatsApp Setup
+                      </Link>
+                    )}
                     {isConnected && (
                       <Link href="/buyer-dashboard" onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl mx-1 transition-colors">

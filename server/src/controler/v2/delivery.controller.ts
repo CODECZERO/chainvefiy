@@ -79,6 +79,16 @@ export const getOrderForDelivery = async (req: any, res: Response) => {
               totalSales: true,
             },
           },
+          stageUpdates: {
+            orderBy: { stageNumber: 'asc' },
+            select: {
+              stageName: true,
+              gpsLat: true,
+              gpsLng: true,
+              gpsAddress: true,
+              createdAt: true,
+            },
+          },
         },
       },
       qrCode: {
@@ -166,10 +176,9 @@ export const confirmDelivery = async (req: any, res: Response) => {
   if (!order) throw new ApiError(404, 'Order not found');
 
   if (order.buyer.stellarWallet !== walletPublicKey) {
-    throw new ApiError(403, 'Wallet does not match the buyer on this order');
-  }
-  if (order.buyerId !== req.user.id) {
-    throw new ApiError(403, 'Unauthorized');
+    if (!req.user || order.buyerId !== req.user.id) {
+      throw new ApiError(403, 'Unauthorized — wallet mismatch and no valid session found');
+    }
   }
 
   if (order.status === 'COMPLETED') {

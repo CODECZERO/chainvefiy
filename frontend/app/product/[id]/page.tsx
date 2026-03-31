@@ -7,8 +7,9 @@ import type { RootState } from "@/lib/redux/store"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
-import { CheckCircle2, XCircle, Clock, MapPin, ExternalLink, MessageCircle, ShieldCheck, Package, Lightbulb, Coins } from "lucide-react"
+import { CheckCircle2, XCircle, Clock, MapPin, ExternalLink, MessageCircle, ShieldCheck, Package, Lightbulb, Coins, ArrowLeft, Star, QrCode, ArrowRight, Lock } from "lucide-react"
 import Link from "next/link"
+import { motion } from "framer-motion"
 import { PaymentModal } from "@/components/payment-modal"
 import { BountyModal } from "@/components/bounty-modal"
 import { SubmitProofModal } from "@/components/submit-proof-modal"
@@ -16,9 +17,9 @@ import { BuyerProfileModal } from "@/components/buyer-profile-modal"
 import { convertInrToUsdc, getUSDCInrRate } from "@/lib/exchange-rates"
 import { getBountiesByProduct } from "@/lib/api-service"
 import { useToast } from "@/components/ui/use-toast"
-import { toast as toastFn } from "@/components/ui/use-toast"
+import { getIPFSUrl } from "@/lib/image-utils"
 
-const PAYMENT_CURRENCIES = ["XLM", "USDC", "BTC", "ETH", "EUR", "GBP"]
+const PAYMENT_CURRENCIES = ["USDC", "XLM", "BTC", "ETH", "UPI"]
 
 export default function ProductPage() {
   const { id } = useParams()
@@ -26,6 +27,7 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [selectedCurrency, setSelectedCurrency] = useState("USDC")
   const [showPayment, setShowPayment] = useState(false)
+  const { isConnected, publicKey } = useSelector((state: RootState) => state.wallet)
   const [activeImg, setActiveImg] = useState(0)
   const [showModal, setShowModal] = useState(false)
   const [showBountyModal, setShowBountyModal] = useState(false)
@@ -35,17 +37,13 @@ export default function ProductPage() {
   const [buyerProfile, setBuyerProfile] = useState<any>(null)
   const [bounties, setBounties] = useState<any[]>([])
   const [usdcInr, setUsdcInr] = useState(83.33)
+  const [isVerifiedUserForThisProduct, setIsVerifiedUserForThisProduct] = useState(false)
   const { isAuthenticated, user } = useSelector((s: RootState) => s.userAuth)
   const isSupplier = isAuthenticated && user?.role === "SUPPLIER"
   const { toast } = useToast()
 
-  useEffect(() => {
-    loadProduct()
-  }, [id])
-
-  useEffect(() => {
-    getUSDCInrRate().then(setUsdcInr).catch(() => {})
-  }, [])
+  useEffect(() => { loadProduct() }, [id])
+  useEffect(() => { getUSDCInrRate().then(setUsdcInr).catch(() => {}) }, [])
 
   const loadProduct = async () => {
     try {
@@ -53,10 +51,15 @@ export default function ProductPage() {
       const data = await res.json()
       setProduct(data.data)
 
-      // Load bounties
       const bountyRes = await getBountiesByProduct(id as string)
-      if (bountyRes.success) {
-        setBounties(bountyRes.data)
+      if (bountyRes.success) setBounties(bountyRes.data)
+
+      if (typeof window !== 'undefined' && localStorage.getItem('accessToken')) {
+        const vRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/verification/status?productId=${id}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+        })
+        const vData = await vRes.json()
+        if (vData.success) setIsVerifiedUserForThisProduct(vData.data.isVerified)
       }
     } catch (e) {
       console.error(e)
@@ -66,13 +69,14 @@ export default function ProductPage() {
   }
 
   const checkProfileAndBuy = async () => {
-    if (!isAuthenticated) {
-      toast({ title: "Auth Required", description: "Please connect your wallet first." })
+    if (!isAuthenticated && !isConnected) {
+      toast({ title: "Auth Required", description: "Please connect your wallet or login first." })
       return
     }
-
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/buyer`, {
+      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/buyer`)
+      if (publicKey) url.searchParams.append('stellarWallet', publicKey)
+      const res = await fetch(url.toString(), {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
       })
       const data = await res.json()
@@ -93,18 +97,16 @@ export default function ProductPage() {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}` 
+          'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}` 
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify({ ...data, stellarWallet: publicKey })
       })
       const json = await res.json()
       if (json.success) {
         setBuyerProfile(json.data)
         setShowProfileModal(false)
         setShowModal(true)
-      } else {
-        throw new Error(json.message)
-      }
+      } else throw new Error(json.message)
     } catch (e: any) {
       toast({ title: "Save Failed", description: e.message || "Failed to save profile", variant: "destructive" })
     }
@@ -113,9 +115,15 @@ export default function ProductPage() {
   if (loading) return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
-      <div className="max-w-6xl mx-auto px-4 py-10 animate-pulse space-y-4">
-        <div className="h-64 bg-muted rounded-2xl" />
-        <div className="h-8 bg-muted rounded w-1/2" />
+      <div className="max-w-7xl mx-auto px-4 py-12 animate-pulse space-y-8">
+        <div className="h-8 bg-muted rounded w-32" />
+        <div className="grid lg:grid-cols-3 gap-12">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="aspect-[4/3] bg-muted rounded-3xl" />
+            <div className="h-10 bg-muted rounded w-3/4" />
+          </div>
+          <div className="h-96 bg-muted rounded-3xl" />
+        </div>
       </div>
     </div>
   )
@@ -124,237 +132,217 @@ export default function ProductPage() {
 
   const total = product.voteReal + product.voteFake
   const realPct = total > 0 ? Math.round((product.voteReal / total) * 100) : 0
-  const usdcPrice =
-    typeof product.priceUsdc === "number" && product.priceUsdc > 0
-      ? product.priceUsdc
-      : convertInrToUsdc(Number(product.priceInr) || 0, usdcInr)
+  const usdcPrice = typeof product.priceUsdc === "number" && product.priceUsdc > 0 
+    ? product.priceUsdc 
+    : convertInrToUsdc(Number(product.priceInr) || 0, usdcInr)
   const isVerified = product.status === "VERIFIED"
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground pb-24">
       <Header />
-      <div className="max-w-6xl mx-auto px-4 py-10">
-        <div className="grid lg:grid-cols-3 gap-10">
+      
+      {/* ── Breadcrumb ── */}
+      <div className="border-b border-border bg-background/50 backdrop-blur-md sticky top-16 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <Link href="/marketplace" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Marketplace
+          </Link>
+          <div className="flex items-center gap-3">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+              isVerified ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+            }`}>
+              {isVerified ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+              {isVerified ? "Community Verified" : "Pending Verification"}
+            </span>
+            {product.category && (
+              <span className="bg-accent text-muted-foreground border border-border px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">
+                {product.category}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
 
-          {/* ── Left: Media + Details ── */}
-          <div className="lg:col-span-2 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 py-10">
+        <div className="grid lg:grid-cols-12 gap-12">
 
-            {/* Proof Gallery */}
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="h-72 bg-muted flex items-center justify-center text-7xl overflow-hidden relative">
+          {/* ── Left Column: Media & Details (8 columns) ── */}
+          <div className="lg:col-span-8 space-y-10">
+            
+            {/* 1. Header & Title */}
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-[1.15] mb-4">
+                {String(product.title || "")}
+              </h1>
+              <p className="text-lg text-slate-400 leading-relaxed max-w-3xl">
+                {String(product.description || "")}
+              </p>
+            </div>
+
+            {/* 2. Media Gallery */}
+            <div className="space-y-4">
+              <div className="aspect-[4/3] sm:aspect-[16/10] bg-[#111827] border border-white/[0.06] rounded-[2rem] overflow-hidden relative group">
                 {product.proofMediaUrls?.[activeImg] ? (
-                  <div className="relative w-full h-full">
-                    <Image 
-                      src={product.proofMediaUrls[activeImg]} 
-                      alt={product.title || "Product Image"} 
-                      fill
-                      className="object-cover"
-                      priority
-                      onError={(e) => {
-                        (e.target as any).src = 'https://placehold.co/600x400?text=Image+Not+Found';
-                      }}
-                    />
+                  <Image 
+                    src={getIPFSUrl(product.proofMediaUrls[activeImg])} 
+                    alt={product.title} 
+                    fill
+                    className="object-cover"
+                    priority
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
+                    <Package className="w-24 h-24 mb-4" />
+                    <span className="text-lg font-medium">No Image Available</span>
                   </div>
-                ) : <Package className="w-20 h-20 text-muted-foreground opacity-60" />}
+                )}
+                {/* Embedded QR Overlay for Suppliers */}
+                {product.qrCodeUrl && user?.role === 'SUPPLIER' && (
+                  <div className="absolute bottom-6 right-6 p-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center gap-4 shadow-2xl">
+                    <div className="bg-white p-2 rounded-xl relative w-20 h-20">
+                      <Image src={product.qrCodeUrl} fill className="object-contain p-1" alt="QR" />
+                    </div>
+                    <div className="hidden sm:block pr-2">
+                      <div className="text-xs font-semibold text-white">Product QR</div>
+                      <div className="text-[10px] text-slate-400">Attach to packaging</div>
+                    </div>
+                  </div>
+                )}
               </div>
+              
+              {/* Thumbnails */}
               {product.proofMediaUrls?.length > 1 && (
-                <div className="flex gap-2 p-3 overflow-x-auto">
+                <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
                   {product.proofMediaUrls.map((_: string, i: number) => (
                     <button key={i} onClick={() => setActiveImg(i)}
-                      className={`w-14 h-14 rounded-lg bg-muted shrink-0 border-2 ${i === activeImg ? "border-primary" : "border-transparent"}`}
-                    />
+                      className={`relative w-24 h-24 rounded-2xl overflow-hidden shrink-0 border-2 transition-all duration-200 ${
+                        i === activeImg ? "border-orange-500 shadow-[0_0_15px_rgba(232,119,46,0.3)] scale-100" : "border-transparent opacity-60 hover:opacity-100 scale-95"
+                      }`}
+                    >
+                      <Image src={getIPFSUrl(product.proofMediaUrls[i])} alt="" fill className="object-cover" />
+                    </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* QR Code - Only Supplier */}
-            {product.qrCodeUrl && user?.role === 'SUPPLIER' && (
-              <div className="bg-card border border-border rounded-2xl p-5">
-                <h3 className="font-semibold mb-3">Product QR Code</h3>
-                <p className="text-muted-foreground text-sm mb-4">
-                  Suppliers: print this QR and attach to your product packaging.
-                  Buyers scan it to see the verified journey.
-                </p>
-                <div className="flex items-center gap-6">
-                  <div className="relative w-32 h-32 rounded-xl border border-border bg-background overflow-hidden items-center justify-center flex">
-                    <Image 
-                      src={product.qrCodeUrl} 
-                      alt="QR Code" 
-                      fill
-                      className="object-contain"
-                      unoptimized
-                      onError={(e) => {
-                        (e.target as any).src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '');
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <a href={product.qrCodeUrl} download={`pramanik-${product.id}.png`}>
-                      <Button variant="outline" className="rounded-xl w-full text-sm">
-                        Download QR Code
-                      </Button>
-                    </a>
-                    <a href={`https://wa.me/?text=${encodeURIComponent(`Check out ${product.title || "this product"} on Pramanik: ` + (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/product/' + product.id)}`}
-                      target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" className="rounded-xl w-full text-sm">
-                        Share via WhatsApp
-                      </Button>
-                    </a>
-                  </div>
+            {/* 3. Verification Trust Block */}
+            <div className="premium-card rounded-3xl p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-6">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2 mb-1">
+                    <ShieldCheck className="w-6 h-6 text-emerald-400" /> Community Verification
+                  </h3>
+                  <p className="text-sm text-muted-foreground">Blockchain consensus on authenticity.</p>
                 </div>
-              </div>
-            )}
-
-            {/* Title + Status */}
-            <div>
-              <div className="flex items-start justify-between gap-4">
-                <h1 className="text-2xl font-bold">{String(product.title || "")}</h1>
-                <span className={`shrink-0 flex items-center gap-1 border rounded-full px-3 py-1 text-sm font-semibold ${
-                  isVerified ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" :
-                  "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                }`}>
-                  {isVerified ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                  {isVerified ? "Verified" : "Pending"}
-                </span>
-              </div>
-              <p className="text-muted-foreground mt-2 leading-relaxed">{String(product.description || "")}</p>
-              <div className="inline-block mt-3 bg-muted text-muted-foreground text-xs font-medium px-3 py-1 rounded-full">
-                {String(product.category || "General")}
-              </div>
-            </div>
-
-            {/* Supplier Card */}
-            <Link href={`/supplier/${product.supplier?.id}`}>
-              <div className="flex items-center gap-4 bg-card border border-border hover:bg-accent rounded-2xl p-4 transition-colors">
-                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center font-bold text-lg text-primary-foreground">
-                  {String(product.supplier?.name?.[0] || "S")}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{String(product.supplier?.name || "Supplier")}</span>
-                    {product.supplier?.isVerified && <ShieldCheck className="w-4 h-4 text-orange-400" />}
-                  </div>
-                  <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                    <MapPin className="w-3 h-3" /> {String(product.supplier?.location || "Unknown")}
-                  </div>
-                  {product.supplier?.stellarWallet && (
-                    <div className="mt-1 text-[10px] font-mono text-slate-500 break-all bg-slate-500/5 px-2 py-0.5 rounded">
-                      {product.supplier.stellarWallet}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <div className="text-primary font-bold">{String(product.supplier?.trustScore || 0)}</div>
-                  <div className="text-muted-foreground text-xs">Trust Score</div>
-                </div>
-              </div>
-            </Link>
-
-            {/* Verification */}
-            <div className="bg-card border border-border rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold">Community Verification</h3>
                 <Button 
                   onClick={() => setShowBountyModal(true)}
-                  variant="outline" 
-                  size="sm" 
-                  className="rounded-xl border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                  className="rounded-2xl h-12 px-6 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-lg shadow-orange-500/20 w-full sm:w-auto"
                 >
-                  <Coins className="w-4 h-4 mr-2" />
-                  Request More Proof
+                  <Coins className="w-5 h-5 mr-2" /> Request More Proof
                 </Button>
               </div>
-              <div className="flex items-center gap-4 mb-3">
-                <span className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm">
-                  <CheckCircle2 className="w-4 h-4" /> {String(product.voteReal || 0)} real
-                </span>
-                <span className="flex items-center gap-2 text-red-400 text-sm">
-                  <XCircle className="w-4 h-4" /> {String(product.voteFake || 0)} fake
-                </span>
-                <span className="text-muted-foreground text-sm ml-auto">{String(realPct)}% trust rate</span>
+
+              <div className="grid sm:grid-cols-3 gap-6 mb-8">
+                <div className="bg-[#0C0F17] border border-white/[0.04] rounded-2xl p-5 text-center">
+                  <div className="text-3xl font-bold text-emerald-400 mb-1">{String(realPct)}%</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Trust Consensus</div>
+                </div>
+                <div className="bg-[#0C0F17] border border-white/[0.04] rounded-2xl p-5 text-center">
+                  <div className="text-3xl font-bold text-slate-200 mb-1">{String(total)}</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Votes</div>
+                </div>
+                <div className="bg-[#0C0F17] border border-white/[0.04] rounded-2xl p-5 flex items-center justify-center gap-6">
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-emerald-400 mb-1 flex items-center justify-center gap-1"><CheckCircle2 className="w-4 h-4" />{String(product.voteReal)}</div>
+                    <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Real</div>
+                  </div>
+                  <div className="w-px h-8 bg-border" />
+                  <div className="text-center">
+                    <div className="text-xl font-bold text-red-500 mb-1 flex items-center justify-center gap-1"><XCircle className="w-4 h-4" />{String(product.voteFake)}</div>
+                    <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Fake</div>
+                  </div>
+                </div>
               </div>
-              <div className="h-3 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" style={{ width: `${realPct}%` }} />
+
+              <div className="h-4 bg-[#0C0F17] rounded-full overflow-hidden p-0.5">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${realPct}%` }}
+                  transition={{ duration: 1.2, ease: "easeOut" }}
+                  className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)]" 
+                />
               </div>
-              {isVerified && (
-                <p className="text-emerald-600 dark:text-emerald-400 text-sm mt-3 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Verified by {product.voteReal} community members
-                </p>
-              )}
             </div>
 
-            {/* Active Bounties */}
+            {/* 4. Active Bounties Loop */}
             {bounties?.filter(b => b.status === "ACTIVE").length > 0 && (
-              <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-amber-500" />
-                  Active Bounties
+              <div className="space-y-4">
+                <h3 className="text-2xl font-bold flex items-center gap-3">
+                  <Coins className="w-6 h-6 text-amber-500" /> Active Open Bounties
                 </h3>
-                <div className="grid gap-3">
+                <div className="grid gap-4">
                   {bounties.filter(b => b.status === "ACTIVE").map((b) => (
-                    <div key={b.id} className="bg-muted/30 border border-border rounded-xl p-4 flex items-start justify-between gap-4">
+                    <div key={b.id} className="premium-card rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 border border-amber-500/20">
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{String(b.description || "")}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                            Issued by {b.issuer?.email || (b.issuerWallet ? `${b.issuerWallet.slice(0, 6)}...${b.issuerWallet.slice(-4)}` : "Anonymous")}
-                          </p>
-                          {/* Solver Action */}
-                          {(user?.role === "SUPPLIER" || (user?.role === "BUYER" && (user as any)?.isVerified)) && (
-                            <button 
-                              onClick={() => {
-                                setSelectedBounty(b)
-                                setShowProofModal(true)
-                              }}
-                              className="text-[10px] text-primary hover:underline font-bold uppercase transition-colors"
-                            >
-                              Submit Proof
-                            </button>
-                          )}
+                        <p className="text-base font-medium text-slate-200">{String(b.description || "")}</p>
+                        <div className="flex items-center gap-3 mt-3">
+                          <span className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                            Reward: ₹{Number(b.amount || 0).toLocaleString()}
+                          </span>
+                          <span className="text-xs text-slate-500 font-mono">
+                            By {b.issuer?.email || (b.issuerWallet ? `${b.issuerWallet.slice(0, 6)}...` : "Anon")}
+                          </span>
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-sm font-bold text-amber-600 dark:text-amber-400">₹{Number(b.amount || 0).toLocaleString()}</div>
-                        <div className="text-[10px] text-muted-foreground mr-1">Reward</div>
-                      </div>
+                      {isVerifiedUserForThisProduct && (
+                        <Button 
+                          onClick={() => { setSelectedBounty(b); setShowProofModal(true) }}
+                          className="shrink-0 w-full sm:w-auto rounded-xl h-11 bg-accent text-accent-foreground hover:bg-white hover:text-black font-semibold transition-all"
+                        >
+                          Submit Proof
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Stage Timeline */}
+            {/* 5. Production Journey Timeline */}
             {product.stageUpdates?.length > 0 && (
-              <div className="bg-card border border-border rounded-2xl p-5">
-                <h3 className="font-semibold mb-4">Product Journey</h3>
-                <div className="space-y-4">
+              <div className="pt-6">
+                <h3 className="text-2xl font-bold mb-8">Verified Production Journey</h3>
+                <div className="pl-6 md:pl-8 border-l-2 border-border space-y-12">
                   {product.stageUpdates.map((s: any, i: number) => (
-                    <div key={s.id} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</div>
-                        {i < product.stageUpdates.length - 1 && <div className="w-px flex-1 bg-border mt-2" />}
-                      </div>
-                      <div className="pb-4 flex-1">
-                        <div className="font-medium">{String(s.stageName || "Update")}</div>
-                        {s.note && <p className="text-muted-foreground text-sm mt-1">{String(s.note)}</p>}
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>{new Date(s.createdAt).toLocaleString()}</span>
+                    <div key={s.id} className="relative">
+                      {/* Timeline dot */}
+                      <div className="absolute -left-[35px] md:-left-[43px] top-1 w-8 h-8 rounded-full bg-background border-4 border-primary flex items-center justify-center shadow-[0_0_15px_rgba(232,119,46,0.3)]" />
+                      
+                      <div className="bg-[#111827] border border-white/[0.04] rounded-2xl p-6 -mt-2 hover:border-white/[0.1] transition-colors">
+                        <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
+                          <h4 className="text-lg font-bold text-white">{String(s.stageName || "Update")}</h4>
+                          <span className="text-xs text-slate-500 font-mono bg-background px-3 py-1.5 rounded-lg border border-border">
+                            {new Date(s.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        
+                        {s.note && <p className="text-slate-400 mb-5 leading-relaxed">{String(s.note)}</p>}
+                        
+                        <div className="flex flex-wrap items-center gap-3">
                           {(s.gpsLat && s.gpsLng) && (
-                            <a
-                              href={`https://www.google.com/maps?q=${encodeURIComponent(`${s.gpsLat},${s.gpsLng}`)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-primary hover:underline"
-                            >
-                              <MapPin className="w-3 h-3" />
-                              {String(s.gpsAddress ? s.gpsAddress : "View location")}
+                            <a href={`https://www.google.com/maps?q=${encodeURIComponent(`${s.gpsLat},${s.gpsLng}`)}`}
+                               target="_blank" rel="noopener noreferrer"
+                               className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition-colors">
+                              <MapPin className="w-3.5 h-3.5" />
+                              {String(s.gpsAddress ? s.gpsAddress : "Verified Location")}
                             </a>
                           )}
                           {s.stellarTxId && (
-                            <a href={`https://stellar.expert/explorer/testnet/tx/${s.stellarTxId}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-orange-400 hover:text-orange-300">
-                              <ExternalLink className="w-3 h-3" /> Stellar TX
+                            <a href={`https://stellar.expert/explorer/testnet/tx/${s.stellarTxId}`} 
+                               target="_blank" rel="noopener noreferrer" 
+                               className="inline-flex items-center gap-2 text-xs font-semibold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-3 py-1.5 rounded-lg hover:bg-orange-500/20 transition-colors">
+                              <ExternalLink className="w-3.5 h-3.5" /> Immutable Record
                             </a>
                           )}
                         </div>
@@ -366,61 +354,88 @@ export default function ProductPage() {
             )}
           </div>
 
-          {/* ── Right: Payment Box ── */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-6 bg-card border border-border rounded-2xl p-6 space-y-5">
-              <div>
-                <div className="text-3xl font-bold font-mono text-primary">₹{Number(product.priceInr || 0).toLocaleString()}</div>
-                <div className="text-muted-foreground text-sm mt-1">
-                  ≈ {(selectedCurrency === "USDC" ? (Number(usdcPrice) || 0) : (Number(product.priceInr || 0) / 10)).toFixed(2)} {selectedCurrency} settled in escrow
+          {/* ── Right Column: Payment & Supplier (4 columns) ── */}
+          <div className="lg:col-span-4 relative">
+            <div className="sticky top-24 space-y-6">
+
+              {/* Checkout Box */}
+              <div className="premium-card rounded-[2rem] p-8 border border-white/[0.08] shadow-2xl relative overflow-hidden">
+                <div className="absolute -top-24 -right-24 w-48 h-48 bg-orange-500/20 blur-[60px] rounded-full pointer-events-none" />
+                
+                <div className="mb-8">
+                  <div className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-2">Total Price</div>
+                  <div className="text-5xl font-bold font-mono tracking-tighter text-white">
+                    ₹{Number(product.priceInr || 0).toLocaleString()}
+                  </div>
+                  <div className="text-base text-[#2775CA] font-mono font-bold mt-2 flex items-center gap-2">
+                    ≈ {(selectedCurrency === "USDC" ? (Number(usdcPrice) || 0) : (Number(product.priceInr || 0) / 10)).toFixed(2)} {selectedCurrency}
+                    <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/20 font-sans tracking-normal">Escrow Value</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Currency selector */}
-              <div>
-                <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">Pay with</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {PAYMENT_CURRENCIES.map((c) => (
-                    <button key={c} onClick={() => setSelectedCurrency(c)}
-                      className={`px-3 py-2 rounded-xl border text-sm font-medium transition-colors ${
-                        selectedCurrency === c
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:bg-accent"
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
+                {/* Currency Selector */}
+                <div className="mb-8">
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Select Payment</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {PAYMENT_CURRENCIES.map((c) => (
+                      <button key={c} onClick={() => setSelectedCurrency(c)}
+                        className={`flex items-center justify-center p-3 rounded-xl border-2 text-sm font-bold transition-all ${
+                          selectedCurrency === c
+                            ? "border-primary bg-primary/10 text-primary shadow-[0_0_15px_rgba(232,119,46,0.15)]"
+                            : "border-[#1F2D40] bg-[#0C0F17] text-slate-400 hover:border-slate-600 hover:text-white"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* Escrow notice */}
-              <div className="bg-muted rounded-xl p-3 text-xs text-muted-foreground">
-                <Lightbulb className="w-3.5 h-3.5 text-amber-500 inline mb-0.5" /> Payment is held in{" "}
-                <span className="text-foreground font-medium">Stellar Soroban escrow</span> and released to supplier only after you confirm delivery.
-              </div>
+                {/* Escrow Notice */}
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-8 flex gap-3">
+                  <Lock className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="text-sm text-emerald-100/70 leading-relaxed">
+                    Payment is secured in <span className="text-emerald-400 font-semibold">Stellar Soroban escrow</span>. 
+                    Funds are released only when you confirm successful delivery.
+                  </div>
+                </div>
 
-              {!isSupplier ? (
-                <Button onClick={checkProfileAndBuy} className="w-full rounded-xl h-11 font-semibold">
-                  Buy Now with {selectedCurrency}
+                <Button onClick={checkProfileAndBuy} className="w-full rounded-2xl h-14 text-lg font-bold bg-white text-black hover:bg-slate-200 shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:shadow-[0_0_40px_rgba(255,255,255,0.25)] transition-all">
+                  Checkout Securely <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
-              ) : (
-                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-sm text-primary text-center font-medium">
-                  Suppliers cannot buy products. Visit your dashboard to manage your own listings.
-                </div>
-              )}
+              </div>
 
-              {product.stellarTxId && (
-                <a href={`https://stellar.expert/explorer/testnet/tx/${product.stellarTxId}`} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  <ExternalLink className="w-3 h-3" /> View receipt on Stellar
-                </a>
-              )}
+              {/* Supplier Box */}
+              <Link href={`/supplier/${product.supplier?.id}`} className="block">
+                <div className="bg-[#111827] border border-white/[0.04] hover:border-white/[0.1] rounded-[2rem] p-6 transition-all group">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Verified Supplier</div>
+                  <div className="flex items-center gap-5">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-2xl text-white shadow-lg">
+                      {String(product.supplier?.name?.[0] || "S")}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg text-white group-hover:text-indigo-300 transition-colors">
+                        {String(product.supplier?.name || "Supplier")}
+                      </h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Star className="w-4 h-4 text-orange-400 fill-orange-400" />
+                        <span className="text-sm font-bold text-orange-400">{String(product.supplier?.trustScore || 0)}% Trust</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-500">
+                        <MapPin className="w-3.5 h-3.5" /> {String(product.supplier?.location || "Location")}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+
             </div>
           </div>
 
         </div>
       </div>
+
+      {/* Modals */}
       {product && (
         <PaymentModal
           isOpen={showModal}
@@ -439,10 +454,7 @@ export default function ProductPage() {
       {product && (
         <BountyModal
           isOpen={showBountyModal}
-          onClose={() => {
-            setShowBountyModal(false)
-            loadProduct() // Refresh bounties
-          }}
+          onClose={() => { setShowBountyModal(false); loadProduct(); }}
           product={product}
         />
       )}

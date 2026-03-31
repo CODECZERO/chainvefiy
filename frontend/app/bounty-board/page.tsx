@@ -59,17 +59,12 @@ export default function BountyBoardPage() {
     }).catch(() => setLoading(false))
   }, [])
 
-  const items = useMemo(() => {
+  const filteredBounties = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    const internal = needle 
-      ? BOUNTIES.filter((b) => `${b.title} ${b.description} ${b.category}`.toLowerCase().includes(needle))
-      : BOUNTIES
-    
-    const products = needle
-      ? realBounties.filter(b => `${b.product?.title} ${b.description}`.toLowerCase().includes(needle))
-      : realBounties
-
-    return { internal, products }
+    if (!needle) return realBounties
+    return realBounties.filter(b => 
+      `${b.product?.title} ${b.description} ${b.product?.category}`.toLowerCase().includes(needle)
+    )
   }, [q, realBounties])
 
   return (
@@ -80,57 +75,81 @@ export default function BountyBoardPage() {
           <div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Briefcase className="w-4 h-4" />
-              <span className="text-sm">Bounty board</span>
+              <span className="text-sm">Community marketplace</span>
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight mt-2">Bounties</h1>
-            <p className="text-muted-foreground mt-2">Pick a task, ship an improvement, and earn points.</p>
+            <h1 className="text-3xl font-semibold tracking-tight mt-2">Bounty Board</h1>
+            <p className="text-muted-foreground mt-2">Earn rewards by verifying product origins and providing proof.</p>
           </div>
-          <Button asChild>
-            <Link href="/verify">
-              <ShieldCheck className="w-4 h-4 mr-2" />
-              Verify products
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link href="/marketplace">
+                <Package className="w-4 h-4 mr-2" />
+                Browse Products
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/verify">
+                <ShieldCheck className="w-4 h-4 mr-2" />
+                Verify products
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <div className="mt-8 flex items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search bounties..." className="pl-9" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search bounties by product or description..." className="pl-9" />
           </div>
           <Badge variant="secondary" className="whitespace-nowrap">
-            <Sparkles className="w-3.5 h-3.5 mr-1" /> {items.internal.length + items.products.length} open
+            <Sparkles className="w-3.5 h-3.5 mr-1" /> {filteredBounties.length} open
           </Badge>
         </div>
 
-        <div className="grid gap-4 mt-6">
-          {items.products.length > 0 && (
-            <div className="space-y-3">
+        <div className="grid gap-4 mt-8">
+          {loading ? (
+             <div className="space-y-4 animate-pulse">
+               {[1,2,3].map(i => <div key={i} className="h-32 bg-muted rounded-2xl" />)}
+             </div>
+          ) : filteredBounties.length > 0 ? (
+            <div className="space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-2 flex items-center gap-2">
-                <Coins className="w-4 h-4" /> Product Verification Bounties
+                <Coins className="w-4 h-4" /> Available Bounties
               </h3>
-              {items.products.map((b) => (
-                <Card key={b.id} className="p-5 border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 transition-colors group">
-                  <div className="flex flex-col md:flex-row items-start justify-between gap-4">
+              {filteredBounties.map((b) => (
+                <Card key={b.id} className="p-6 border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 transition-all group overflow-hidden relative">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl -mr-16 -mt-16 group-hover:bg-amber-500/10 transition-colors" />
+                  
+                  <div className="flex flex-col md:flex-row items-stretch justify-between gap-6 relative z-10">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-2">
-                        <span className="font-bold text-lg group-hover:text-amber-500 transition-colors">{String(b.product?.title || "Product Proof")}</span>
-                        <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30 font-bold text-[10px] uppercase tracking-wider">Verification</Badge>
+                      <div className="flex items-center gap-3 flex-wrap mb-3">
+                        <span className="font-bold text-xl group-hover:text-amber-500 transition-colors">{String(b.product?.title || "Product Proof")}</span>
+                        <Badge className="bg-amber-500/20 text-amber-500 border-amber-500/30 font-bold text-[10px] uppercase tracking-wider px-2 py-0.5">Verification</Badge>
                       </div>
-                      <p className="text-muted-foreground text-sm italic">"{String(b.description || "")}"</p>
-                      <div className="flex items-center gap-3 mt-3 text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">
-                        <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {String(b.product?.category || "General")}</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {String(new Date(b.createdAt).toLocaleDateString())}</span>
+                      <p className="text-muted-foreground text-sm leading-relaxed max-w-2xl italic">"{String(b.description || "")}"</p>
+                      
+                      <div className="flex items-center gap-4 mt-5 text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">
+                        <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
+                          <Package className="w-3 h-3 text-amber-500/70" /> {String(b.product?.category || "General")}
+                        </span>
+                        <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
+                          <Clock className="w-3 h-3 text-amber-500/70" /> {new Date(b.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                        {b.issuer?.email && (
+                          <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
+                            By {b.issuer.email.split('@')[0]}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right shrink-0 w-full md:w-auto flex md:flex-col items-center md:items-end justify-between md:justify-start gap-4">
-                      <div>
-                        <div className="text-2xl font-black text-amber-500 font-mono">₹{String(b.amount || 0)}</div>
+
+                    <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-4 border-t md:border-t-0 md:border-l border-amber-500/10 pt-4 md:pt-0 md:pl-8 min-w-[140px]">
+                      <div className="text-center md:text-right">
+                        <div className="text-2xl font-black text-amber-500 font-mono tracking-tighter">₹{Number(b.amount || 0).toLocaleString()}</div>
                         <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Reward Pool</div>
                       </div>
                       <Link href={`/product/${b.productId}`}>
-                        <Button className="bg-amber-500 hover:bg-amber-600 text-black font-bold h-10 rounded-xl px-6">
+                        <Button className="bg-amber-500 hover:bg-amber-600 text-black font-bold h-11 rounded-xl px-8 shadow-lg shadow-amber-500/20 active:scale-95 transition-transform">
                           Fulfill <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
                       </Link>
@@ -139,33 +158,16 @@ export default function BountyBoardPage() {
                 </Card>
               ))}
             </div>
-          )}
-
-          {items.internal.length > 0 && (
-            <div className="space-y-3 mt-4">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-2">
-                <Sparkles className="w-4 h-4" /> Internal Tasks
-              </h3>
-              {items.internal.map((b) => (
-                <Card key={b.id} className="p-5 border-border bg-card hover:bg-accent/50 transition-colors">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <div className="font-semibold text-white">{b.title}</div>
-                        <Badge variant="outline" className="text-[10px] uppercase tracking-wider">{b.category}</Badge>
-                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wider opacity-70">{b.difficulty}</Badge>
-                      </div>
-                      <p className="text-muted-foreground text-sm">{b.description}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="font-bold text-white">{b.reward}</div>
-                      <Button variant="ghost" className="mt-2 text-xs h-8 text-primary hover:text-primary hover:bg-primary/10">
-                        View Details <ArrowRight className="w-3 h-3 ml-1" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+          ) : (
+            <div className="text-center py-20 bg-card rounded-3xl border border-dashed border-border">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="w-6 h-6 text-muted-foreground" />
+              </div>
+              <h3 className="text-xl font-medium mb-2">No bounties found</h3>
+              <p className="text-muted-foreground mb-6">Try searching for something else or create a new bounty.</p>
+              <Button asChild variant="outline" className="rounded-xl">
+                <Link href="/marketplace">Create Bounty from Marketplace</Link>
+              </Button>
             </div>
           )}
         </div>

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../util/asyncHandler.util.js';
-import { verifyJWT } from '../../midelware/verify.midelware.js';
+import { verifyJWT, optionalJWT } from '../../midelware/verify.midelware.js';
 import {
   getOrderForDelivery,
   confirmDelivery,
@@ -16,8 +16,8 @@ router.get('/by-wallet/:publicKey', asyncHandler(getOrdersByWallet));
 // Single order for delivery confirmation — checks wallet matches buyer
 router.get('/:orderId/delivery-view', asyncHandler(getOrderForDelivery));
 
-// Buyer confirms receipt — requires JWT and wallet match
-router.post('/:orderId/confirm', verifyJWT, asyncHandler(confirmDelivery));
+// Buyer confirms receipt — supports both JWT and wallet-only users
+router.post('/:orderId/confirm', optionalJWT, asyncHandler(confirmDelivery));
 
 // Buyer uploads dispute proof within 3-day window — requires JWT
 router.post('/:orderId/dispute-proof', verifyJWT, asyncHandler(uploadDisputeProof));

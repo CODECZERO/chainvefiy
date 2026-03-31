@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import AsyncHandler from '../../util/asyncHandler.util.js';
+import { prisma } from '../../lib/prisma.js';
 import { ApiError } from '../../util/apiError.util.js';
 import { ApiResponse } from '../../util/apiResponse.util.js';
 import {
@@ -18,6 +19,47 @@ export const createBounty = AsyncHandler(async (req: Request, res: Response) => 
 
   if (!productId || (!issuerId && !stellarWallet) || !amount || !description) {
     throw new ApiError(400, 'Missing required fields: productId, (issuerId or stellarWallet), amount, description');
+  }
+
+  // ─── Verification Guard: Only verified users can create bounties ───
+  const issuer = issuerId
+    ? await prisma.user.findUnique({ where: { id: issuerId }, include: { supplierProfile: true } })
+    : stellarWallet
+      ? await prisma.user.findFirst({ where: { stellarWallet }, include: { supplierProfile: true } })
+      : null;
+
+  if (issuer) {
+    let isVerified = false;
+    if (issuer.role === 'SUPPLIER' && issuer.supplierProfile) {
+      isVerified = issuer.supplierProfile.totalSales > 5;
+    } else {
+      // Buyer: must have an order for this product (even if just PAID)
+      const order = await prisma.order.findFirst({
+        where: {
+          productId,
+          buyerId: issuer.id,
+          status: { in: ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED'] }
+        }
+      });
+      isVerified = !!order;
+    }
+    if (!isVerified) {
+      throw new ApiError(403, 'Only verified users can create bounties. Suppliers need >5 sales, buyers must have purchased this product.');
+    }
+  } else if (stellarWallet) {
+    // Wallet-only: find user by wallet, then check orders
+    const walletUser = await prisma.user.findFirst({ where: { stellarWallet } });
+    if (!walletUser) {
+      throw new ApiError(403, 'Only verified buyers who purchased this product can create bounties.');
+    }
+    const walletOrder = await prisma.order.findFirst({
+      where: { buyerId: walletUser.id, productId, status: { in: ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED'] } }
+    });
+    if (!walletOrder) {
+      throw new ApiError(403, 'Only verified buyers who purchased this product can create bounties.');
+    }
+  } else {
+    throw new ApiError(401, 'User identification required to create bounties.');
   }
 
   const bounty = await createBountyQuery({
@@ -67,6 +109,10 @@ export const verifyBountyPayment = AsyncHandler(async (req: Request, res: Respon
 
 export const getBountiesByProduct = AsyncHandler(async (req: Request, res: Response) => {
   const productId = req.params.productId as string;
+  const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  if (!uuidRegex.test(productId)) {
+    return res.json(new ApiResponse(200, [], 'Invalid UUID format (no bounties)'));
+  }
   const bounties = await getBountiesByProductQuery(productId);
   return res.json(new ApiResponse(200, bounties, 'Bounties fetched for product'));
 });
@@ -93,6 +139,32 @@ export const submitBountyProof = AsyncHandler(async (req: Request, res: Response
   const bounty = await getBountyByIdQuery(bountyId);
   if (!bounty) throw new ApiError(404, 'Bounty not found');
   if (bounty.status !== 'ACTIVE') throw new ApiError(400, 'Bounty is not active');
+
+  // ── Verification Rule Enforcement ──
+  const solver = await prisma.user.findUnique({
+    where: { id: solverId },
+    include: { supplierProfile: true }
+  });
+
+  if (!solver) throw new ApiError(404, 'Solver user not found');
+
+  let isVerified = false;
+  if (solver.role === 'SUPPLIER' && solver.supplierProfile) {
+    if (solver.supplierProfile.totalSales > 5) isVerified = true;
+  } else if (solver.role === 'BUYER') {
+    const order = await prisma.order.findFirst({
+      where: {
+        buyerId: solverId,
+        productId: bounty.productId,
+        status: { in: ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED'] }
+      }
+    });
+    if (order) isVerified = true;
+  }
+
+  if (!isVerified) {
+    throw new ApiError(403, 'Unauthorized: You must be a verified supplier or have purchased/received this product to submit proof.');
+  }
 
   const updatedBounty = await submitBountyProofQuery(bountyId, solverId, proofCid);
 

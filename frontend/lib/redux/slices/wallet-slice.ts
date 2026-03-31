@@ -37,11 +37,11 @@ export const connectWallet = createAsyncThunk<
       throw new Error("Failed to get public key from wallet");
     }
 
-    // Store wallet connection in sessionStorage
+    // Store wallet connection in localStorage for cross-tab sync
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('wallet_connected', 'true')
-      sessionStorage.setItem('wallet_type', walletType)
-      sessionStorage.setItem('wallet_publicKey', publicKey)
+      localStorage.setItem('wallet_connected', 'true')
+      localStorage.setItem('wallet_type', walletType)
+      localStorage.setItem('wallet_publicKey', publicKey)
     }
 
     // Fetch balance
@@ -76,8 +76,8 @@ export const restoreWalletKit = createAsyncThunk<void, void>(
   "wallet/restoreKit",
   async () => {
     if (typeof window === "undefined") return
-    const isConnected = sessionStorage.getItem("wallet_connected") === "true"
-    const walletType = sessionStorage.getItem("wallet_type")
+    const isConnected = localStorage.getItem("wallet_connected") === "true"
+    const walletType = localStorage.getItem("wallet_type")
     if (!isConnected || !walletType) return
     kit.setWallet(walletType as any)
   }
@@ -88,12 +88,12 @@ const walletSlice = createSlice({
   initialState,
   reducers: {
     restoreWalletState: (state) => {
-      // Restore wallet state from sessionStorage on app load
+      // Restore wallet state from localStorage on app load
       if (typeof window !== 'undefined') {
         try {
-          const isConnected = sessionStorage.getItem('wallet_connected') === 'true'
-          const walletType = sessionStorage.getItem('wallet_type')
-          const publicKey = sessionStorage.getItem('wallet_publicKey')
+          const isConnected = localStorage.getItem('wallet_connected') === 'true'
+          const walletType = localStorage.getItem('wallet_type')
+          const publicKey = localStorage.getItem('wallet_publicKey')
 
           if (isConnected && walletType && publicKey) {
             state.isConnected = true
@@ -104,9 +104,9 @@ const walletSlice = createSlice({
         } catch (error) {
           // Clear potentially corrupted state
           if (typeof window !== 'undefined') {
-            sessionStorage.removeItem('wallet_connected')
-            sessionStorage.removeItem('wallet_type')
-            sessionStorage.removeItem('wallet_publicKey')
+            localStorage.removeItem('wallet_connected')
+            localStorage.removeItem('wallet_type')
+            localStorage.removeItem('wallet_publicKey')
           }
         }
       }

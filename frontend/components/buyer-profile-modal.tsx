@@ -15,6 +15,10 @@ export function BuyerProfileModal({ isOpen, onClose, onSave, initialData }: Buye
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[600px] p-0 border-none bg-transparent shadow-none overflow-visible">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Buyer Profile</DialogTitle>
+          <DialogDescription>Complete your profile to proceed with the purchase.</DialogDescription>
+        </DialogHeader>
         <BuyerProfileForm 
           initialData={initialData} 
           onSave={onSave} 

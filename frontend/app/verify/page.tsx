@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2, XCircle, HelpCircle, Trophy, Clock, ShieldCheck, Package } from "lucide-react"
+import { CheckCircle2, XCircle, HelpCircle, Trophy, Clock, ShieldCheck, Package, ExternalLink, Activity } from "lucide-react"
 import { useSelector } from "react-redux"
 import type { RootState } from "@/lib/redux/store"
+import Image from "next/image"
 
 interface PendingProduct {
   id: string
@@ -21,8 +22,6 @@ interface PendingProduct {
   supplier: { name: string; location: string; trustScore: number }
   _count: { votes: number }
 }
-
-
 
 export default function VerifyPage() {
   const [queue, setQueue] = useState<PendingProduct[]>([])
@@ -85,51 +84,74 @@ export default function VerifyPage() {
   const remaining = queue.filter(p => !votes[p.id])
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground pb-24">
       <Header />
-      <div className="max-w-4xl mx-auto px-4 py-10">
-
-        {/* Header */}
-        <div className="flex items-start justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Verify Products</h1>
-            <p className="text-muted-foreground mt-1">Review proof and vote to keep the marketplace clean.</p>
-            <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mt-2">
-               You have {tokenBalance} tokens. Higher value products require staked tokens. You earn bonus tokens if your consensus is accurate!
-            </p>
-          </div>
-          {tokensEarned > 0 && (
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl px-5 py-3 text-center">
-              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">+{tokensEarned}</div>
-              <div className="text-xs text-amber-600/70 dark:text-amber-400/70">Community</div>
+      
+      {/* ── Page Header ── */}
+      <div className="relative border-b border-white/[0.04] bg-[#0A0D14] overflow-hidden">
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none -translate-y-1/2 -translate-x-1/2" />
+        <div className="max-w-7xl mx-auto px-4 py-16 relative z-10">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+            <div className="max-w-2xl">
+              <span className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-widest mb-6">
+                <ShieldCheck className="w-4 h-4" /> Consensus Protocol
+              </span>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+                Verify Products
+              </h1>
+              <p className="text-lg text-slate-400 leading-relaxed mb-6">
+                Review proof, vote on authenticity, and secure the marketplace. Earn Trust Tokens for accurate consensus.
+              </p>
+              <div className="inline-flex items-center gap-4 bg-[#0C0F17] border border-white/[0.06] rounded-2xl p-4 shadow-inner">
+                <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
+                  <Activity className="w-6 h-6 text-orange-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Available Stakes</div>
+                  <div className="text-2xl font-bold font-mono text-white">{tokenBalance.toLocaleString()} <span className="text-sm font-sans text-orange-400">Tokens</span></div>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
 
+            {tokensEarned > 0 && (
+              <div className="premium-card rounded-3xl p-6 text-center shadow-emerald-500/10 shadow-2xl shrink-0 min-w-[200px] border-emerald-500/30">
+                <div className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Session Bonus</div>
+                <div className="text-5xl font-bold font-mono text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">+{tokensEarned}</div>
+                <div className="text-xs text-emerald-400/80 mt-2 font-medium">Stellar Tokens Mined</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 py-12">
+        
         {/* Tabs */}
-        <div className="flex gap-1 bg-muted border border-border rounded-xl p-1 w-fit mb-6">
+        <div className="flex gap-2 p-1.5 bg-[#0A0D14] border border-white/[0.06] rounded-2xl w-fit mb-10 shadow-inner">
           {(["queue", "history"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-                tab === t ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
+              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all capitalize ${
+                tab === t ? "bg-[#1F2D40] text-white shadow-lg shadow-black/50 border border-white/10" : "text-slate-500 hover:text-white hover:bg-white/5"
               }`}
             >
-              {t === "queue" ? `Pending (${remaining.length})` : "My Votes"}
+              {t === "queue" ? `Pending Review (${remaining.length})` : "My Voting History"}
             </button>
           ))}
         </div>
 
         {tab === "queue" && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {loading ? (
               [...Array(3)].map((_, i) => (
-                <div key={i} className="bg-card border border-border rounded-2xl p-5 animate-pulse h-48" />
+                <div key={i} className="premium-card rounded-[2rem] p-6 animate-pulse h-64" />
               ))
             ) : remaining.length === 0 ? (
-              <div className="text-center py-20 text-muted-foreground">
-                <ShieldCheck className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="text-lg font-medium text-foreground">All caught up!</p>
-                <p>No products pending verification right now.</p>
+              <div className="text-center py-32 premium-card rounded-[3rem]">
+                <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.1)]">
+                  <ShieldCheck className="w-12 h-12 text-emerald-500" />
+                </div>
+                <h3 className="text-3xl font-bold text-white mb-3">All caught up!</h3>
+                <p className="text-lg text-slate-400">No products are pending verification right now. Check back later.</p>
               </div>
             ) : (
               remaining.map((p) => {
@@ -137,78 +159,83 @@ export default function VerifyPage() {
                 const realPct = total > 0 ? Math.round((p.voteReal / total) * 100) : 0
 
                 return (
-                  <div key={p.id} className="bg-card border border-border rounded-2xl overflow-hidden hover:bg-accent transition-colors">
-                    <div className="flex gap-5 p-5">
+                  <div key={p.id} className="premium-card rounded-[2rem] overflow-hidden group">
+                    <div className="flex flex-col md:flex-row gap-8 p-8">
                       {/* Image */}
-                      <div className="w-28 h-28 bg-muted rounded-xl flex items-center justify-center text-4xl shrink-0">
+                      <div className="w-full md:w-48 h-48 bg-[#0C0F17] rounded-2xl flex items-center justify-center text-4xl shrink-0 overflow-hidden relative border border-white/[0.04]">
                         {p.proofMediaUrls?.[0] ? (
-                          <img src={p.proofMediaUrls[0]} alt="" className="w-full h-full object-cover rounded-xl" />
-                        ) : <Package className="w-12 h-12 text-muted-foreground opacity-60" />}
+                          <Image src={p.proofMediaUrls[0]} alt="" fill className="object-cover group-hover:scale-110 transition-transform duration-700" />
+                        ) : <Package className="w-16 h-16 text-slate-700" />}
                       </div>
 
                       {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="flex items-start justify-between gap-4 mb-2">
                           <div>
-                            <h3 className="font-semibold text-foreground">{p.title}</h3>
-                            <p className="text-muted-foreground text-sm">{p.supplier.name} · {p.supplier.location}</p>
+                            <h3 className="text-2xl font-bold text-white mb-1 group-hover:text-amber-400 transition-colors">{p.title}</h3>
+                            <p className="text-slate-400 text-sm font-medium">{p.supplier.name} <span className="text-slate-600 mx-2">•</span> {p.supplier.location}</p>
                           </div>
-                          <span className="text-blue-400 font-bold font-mono shrink-0">₹{p.priceInr}</span>
+                          <span className="text-blue-400 font-bold font-mono text-xl shrink-0 bg-blue-500/10 px-4 py-1.5 rounded-xl border border-blue-500/20">₹{p.priceInr.toLocaleString()}</span>
                         </div>
 
                         {p.description && (
-                          <p className="text-muted-foreground text-sm mt-2 line-clamp-2">{p.description}</p>
+                          <p className="text-slate-400 text-base leading-relaxed mt-4 line-clamp-2">{p.description}</p>
                         )}
 
                         {/* Current vote status */}
-                        <div className="flex items-center gap-4 mt-3">
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {p._count.votes} votes so far
+                        <div className="mt-6 bg-[#0C0F17] border border-white/[0.04] p-4 rounded-xl flex items-center gap-6">
+                          <span className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-slate-400" />
+                            {p._count.votes} Votes Total
                           </span>
-                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-32">
-                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${realPct}%` }} />
+                          <div className="flex-1 h-2 bg-[#1A2235] rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" style={{ width: `${realPct}%` }} />
                           </div>
-                          <span className="text-xs text-muted-foreground">{realPct}% real</span>
+                          <span className="text-sm font-bold text-emerald-400">{realPct}% Authentic</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Vote buttons */}
-                    <div className="border-t border-border px-5 py-3 flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground mr-auto">Vote on this product:</span>
+                    <div className="bg-[#0A0D14] border-t border-white/[0.06] px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       
                       {(() => {
                         const required = p.priceInr >= 20000 ? 50 : p.priceInr >= 5000 ? 10 : 0;
                         const disabled = tokenBalance < required;
                         return (
                           <>
-                            {required > 0 && (
-                               <span className="text-xs font-semibold mr-2 text-amber-500">
-                                 Requires {required} Trust Tokens
-                               </span>
-                            )}
-                            <button
-                              disabled={disabled}
-                              onClick={() => castVote(p.id, "REAL")}
-                              className={`flex items-center gap-2 border rounded-xl px-4 py-2 text-sm font-medium transition-colors ${disabled ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground' : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'}`}
-                            >
-                              <CheckCircle2 className="w-4 h-4" /> Real
-                            </button>
-                            <button
-                              disabled={disabled}
-                              onClick={() => castVote(p.id, "FAKE")}
-                              className={`flex items-center gap-2 border rounded-xl px-4 py-2 text-sm font-medium transition-colors ${disabled ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground' : 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20'}`}
-                            >
-                              <XCircle className="w-4 h-4" /> Fake
-                            </button>
-                            <button
-                              disabled={disabled}
-                              onClick={() => castVote(p.id, "NEEDS_MORE_PROOF")}
-                              className={`flex items-center gap-2 border rounded-xl px-4 py-2 text-sm font-medium transition-colors ${disabled ? 'opacity-50 cursor-not-allowed bg-muted text-muted-foreground' : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/20'}`}
-                            >
-                              <HelpCircle className="w-4 h-4" /> Need More Proof
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Your Consensus:</span>
+                              {required > 0 && (
+                                <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                  Requires {required} Stakes
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="flex gap-3">
+                              <button
+                                disabled={disabled}
+                                onClick={() => castVote(p.id, "REAL")}
+                                className={`flex items-center justify-center gap-2 border-2 rounded-xl px-6 py-3 text-sm font-bold transition-all h-12 ${disabled ? 'opacity-40 cursor-not-allowed bg-[#0C0F17] border-white/5 text-slate-500' : 'bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]'}`}
+                              >
+                                <CheckCircle2 className="w-5 h-5" /> Authentic
+                              </button>
+                              <button
+                                disabled={disabled}
+                                onClick={() => castVote(p.id, "FAKE")}
+                                className={`flex items-center justify-center gap-2 border-2 rounded-xl px-6 py-3 text-sm font-bold transition-all h-12 ${disabled ? 'opacity-40 cursor-not-allowed bg-[#0C0F17] border-white/5 text-slate-500' : 'bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border-red-500/30 hover:shadow-[0_0_20px_rgba(239,68,68,0.4)]'}`}
+                              >
+                                <XCircle className="w-5 h-5" /> Fake
+                              </button>
+                              <button
+                                disabled={disabled}
+                                onClick={() => castVote(p.id, "NEEDS_MORE_PROOF")}
+                                className={`flex items-center justify-center gap-2 border-2 rounded-xl px-6 py-3 text-sm font-bold transition-all h-12 ${disabled ? 'opacity-40 cursor-not-allowed bg-[#0C0F17] border-white/5 text-slate-500' : 'bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-white border-amber-500/30 hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]'}`}
+                              >
+                                <HelpCircle className="w-5 h-5" /> Need Proof
+                              </button>
+                            </div>
                           </>
                         )
                       })()}
@@ -220,20 +247,22 @@ export default function VerifyPage() {
 
             {/* Voted items */}
             {Object.keys(votes).length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-muted-foreground text-sm font-medium mb-3">Your votes this session:</h3>
-                <div className="space-y-2">
+              <div className="mt-12">
+                <h3 className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <Activity className="w-4 h-4" /> Session Activity Log
+                </h3>
+                <div className="space-y-3">
                   {Object.entries(votes).map(([id, vote]) => {
                     const product = queue.find(p => p.id === id)
                     if (!product) return null
                     return (
-                      <div key={id} className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3">
-                        <span className="text-sm">{product.title}</span>
-                        <div className="flex items-center gap-2">
-                          {vote === "REAL" && <span className="text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Voted Real</span>}
-                          {vote === "FAKE" && <span className="text-red-400 text-xs flex items-center gap-1"><XCircle className="w-3 h-3" /> Voted Fake</span>}
-                          {vote === "NEEDS_MORE_PROOF" && <span className="text-amber-600 dark:text-amber-400 text-xs flex items-center gap-1"><HelpCircle className="w-3 h-3" /> Needs Proof</span>}
-                          <span className="text-amber-600 dark:text-amber-400 text-xs font-medium">Vote recorded</span>
+                      <div key={id} className="flex items-center justify-between premium-card rounded-2xl px-6 py-4 border-l-4 border-l-emerald-500">
+                        <span className="text-base font-bold text-white">{product.title}</span>
+                        <div className="flex items-center gap-4">
+                          {vote === "REAL" && <span className="text-emerald-400 text-sm font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Voted Authentic</span>}
+                          {vote === "FAKE" && <span className="text-red-400 text-sm font-bold bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20 flex items-center gap-2"><XCircle className="w-4 h-4" /> Voted Fake</span>}
+                          {vote === "NEEDS_MORE_PROOF" && <span className="text-amber-400 text-sm font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 flex items-center gap-2"><HelpCircle className="w-4 h-4" /> Requested Proof</span>}
+                          <span className="text-slate-500 text-xs font-mono uppercase">Tx Recorded</span>
                         </div>
                       </div>
                     )
@@ -245,10 +274,15 @@ export default function VerifyPage() {
         )}
 
         {tab === "history" && (
-          <div className="text-center py-20 text-muted-foreground">
-            <Trophy className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>Connect your wallet to see your voting history.</p>
-            <Button className="mt-4 rounded-xl">Connect Wallet</Button>
+          <div className="text-center py-32 premium-card rounded-[3rem]">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-[#0C0F17] flex items-center justify-center border border-white/[0.06] shadow-inner">
+              <Trophy className="w-10 h-10 text-slate-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-3">Connect your wallet</h3>
+            <p className="text-slate-400 mb-8 max-w-sm mx-auto">Please securely connect your Stellar wallet to view your historical voting records and earned tokens.</p>
+            <Button className="h-14 px-8 rounded-2xl text-lg font-bold bg-white text-black hover:bg-slate-200 transition-all shadow-lg hover:shadow-white/20">
+              Connect Stellar Wallet
+            </Button>
           </div>
         )}
       </div>

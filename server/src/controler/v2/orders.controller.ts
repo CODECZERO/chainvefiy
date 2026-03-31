@@ -2,15 +2,16 @@ import { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { ApiResponse } from '../../util/apiResponse.util.js';
 import { notifySupplier } from '../../services/whatsapp/whatsapp.service.js';
-import { cacheDel } from '../../lib/redis.js';
+import { cacheDel, buildCacheKey } from '../../lib/redis.js';
 import { getUSDCtoINRRate } from '../../util/exchangeRate.util.js';
 import jwt from 'jsonwebtoken';
 import { uploadOnIpfs } from '../../services/ipfs(pinata)/ipfs.services.js';
 import QRCode from 'qrcode';
+import { EscrowService } from '../../services/stellar/escrow.service.js';
 
 export const placeOrder = async (req: any, res: Response) => {
   const { 
-    productId, buyerId, quantity = 1, paymentMethod, sourceCurrency, sourceAmount, 
+    id, productId, buyerId, quantity = 1, paymentMethod, sourceCurrency, sourceAmount, 
     escrowTxId, pathPaymentTxId, stellarWallet,
     shippingFullName, shippingPhone, shippingAddress, shippingCity, shippingState, shippingPincode, shippingCountry 
   } = req.body;
@@ -43,27 +44,33 @@ export const placeOrder = async (req: any, res: Response) => {
   const usdcInr = await getUSDCtoINRRate();
   const priceUsdc = Number(product.priceUsdc) || Number(product.priceInr) / usdcInr;
 
+  const orderData: any = {
+    productId,
+    buyerId: String(finalBuyerId),
+    quantity: parseInt(quantity as string),
+    priceInr: product.priceInr,
+    priceUsdc,
+    paymentMethod,
+    sourceCurrency,
+    sourceAmount: sourceAmount ? parseFloat(sourceAmount) : null,
+    status: 'PAID',
+    escrowTxId,
+    pathPaymentTxId,
+    shippingFullName,
+    shippingPhone,
+    shippingAddress,
+    shippingCity,
+    shippingState,
+    shippingPincode,
+    shippingCountry
+  };
+
+  if (id) {
+    orderData.id = id;
+  }
+
   const order = await prisma.order.create({
-    data: {
-      productId,
-      buyerId: String(finalBuyerId),
-      quantity: parseInt(quantity as string),
-      priceInr: product.priceInr,
-      priceUsdc,
-      paymentMethod,
-      sourceCurrency,
-      sourceAmount: sourceAmount ? parseFloat(sourceAmount) : null,
-      status: 'PAID',
-      escrowTxId,
-      pathPaymentTxId,
-      shippingFullName,
-      shippingPhone,
-      shippingAddress,
-      shippingCity,
-      shippingState,
-      shippingPincode,
-      shippingCountry
-    },
+    data: orderData,
   });
 
   const qrSecret = process.env.QR_SECRET || 'chainverify_qr_secret_fallback';
@@ -128,11 +135,18 @@ export const getOrderStatus = async (req: any, res: Response) => {
     include: {
       product: { 
         include: { 
-          supplier: { select: { name: true } },
-          stageUpdates: { orderBy: { createdAt: 'desc' } }
+          supplier: { select: { name: true, stellarWallet: true, location: true } },
+          stageUpdates: { orderBy: { stageNumber: 'asc' } }
         } 
       },
-      buyer: { select: { email: true } },
+      buyer: { select: { email: true, stellarWallet: true } },
+      qrCode: {
+        include: {
+          scans: {
+            orderBy: { scanNumber: 'asc' }
+          }
+        }
+      }
     },
   });
   if (!order) {
@@ -265,4 +279,69 @@ export const getPublicProof = async (req: Request, res: Response) => {
     deliveryCertTxId: order.deliveryCertTxId,
     status: order.status
   }, 'Proof fetched'));
+};
+
+export const dispatchOrder = async (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: { product: { include: { supplier: true } } }
+  });
+
+  if (!order) return res.status(404).json(new ApiResponse(404, null, 'Order not found'));
+
+  // Try to dispatch half payment to supplier vault
+  if (order.priceUsdc && order.product.supplier.stellarWallet && order.status === 'PAID') {
+    const halfAmount = Number(order.priceUsdc) / 2;
+    try {
+      const escrowService = new EscrowService();
+      const txHash = await escrowService.releaseDispatchPartialPayment(order.product.supplier.stellarWallet, halfAmount);
+      console.log(`[STELLAR] Dispatched half payment TX: ${txHash}`);
+    } catch (e) {
+      console.error("[STELLAR] Failed to release half payment", e);
+    }
+  }
+
+  const updatedOrder = await prisma.order.update({
+    where: { id },
+    data: { status: 'SHIPPED' }
+  });
+
+  let qrCode = await prisma.qRCode.findUnique({ where: { shortCode: id } });
+  if (!qrCode) {
+    qrCode = await prisma.qRCode.create({
+      data: {
+        shortCode: id,
+        token: order.qrBuyerToken || `fallback-token-${id}`,
+        purpose: 'ORDER_BUYER',
+        orderId: id,
+        productId: order.productId,
+        supplierId: order.product.supplierId,
+        firstScannedAt: new Date(),
+        lastScannedAt: new Date()
+      }
+    });
+  }
+
+  await prisma.qRScan.create({
+    data: {
+      qrCodeId: qrCode.id,
+      scanSource: 'MACHINE',
+      machineEventType: 'DISPATCHED',
+      scanNumber: (await prisma.qRScan.count({ where: { qrCodeId: qrCode.id } })) + 1,
+      serverTimestamp: new Date(),
+      clientTimestamp: new Date(),
+      ipCountry: order.shippingCountry || null,
+      ipCountryName: null,
+      ipCity: order.shippingCity || null,
+      resolvedLocation: `Dispatched from ${order.product.supplier.location || 'Seller Facility'}`,
+      resolvedLat: null,
+      resolvedLng: null
+    }
+  });
+
+  await cacheDel(buildCacheKey('journey', { shortCode: id }));
+
+  return res.json(new ApiResponse(200, updatedOrder, 'Order marked as dispatched and journey initiated'));
 };

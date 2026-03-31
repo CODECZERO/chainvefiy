@@ -25,7 +25,10 @@ export const getOrdersByBuyer = async (buyerId: string) => {
 export const getOrdersBySupplier = async (supplierId: string) => {
   return prisma.order.findMany({
     where: { product: { supplierId } },
-    include: { buyer: { select: { email: true } }, product: { select: { title: true } } },
+    include: { 
+      buyer: { select: { email: true, stellarWallet: true, id: true } }, 
+      product: { select: { title: true, category: true, proofMediaUrls: true } }
+    },
     orderBy: { createdAt: 'desc' },
   });
 };

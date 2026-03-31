@@ -32,6 +32,9 @@ export function BountyModal({ isOpen, onClose, product }: BountyModalProps) {
   const [exchangeRate, setExchangeRate] = useState(15)
   const [isLoadingRate, setIsLoadingRate] = useState(false)
   const [bountyId, setBountyId] = useState("")
+  const [isVerified, setIsVerified] = useState(false)
+  const [verifReason, setVerifReason] = useState("")
+  const [checkingVerif, setCheckingVerif] = useState(false)
 
   const stellarAmount = amount ? convertRsToXlm(Number.parseFloat(amount), exchangeRate) : 0
 
@@ -46,6 +49,30 @@ export function BountyModal({ isOpen, onClose, product }: BountyModalProps) {
     const interval = setInterval(fetchRate, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (isOpen && product?.id) {
+      checkVerification()
+    }
+  }, [isOpen, product?.id])
+
+  const checkVerification = async () => {
+    setCheckingVerif(true)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/verification/status?productId=${product.id}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      })
+      const data = await res.json()
+      if (data.success) {
+        setIsVerified(data.data.isVerified)
+        setVerifReason(data.data.reason)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setCheckingVerif(false)
+    }
+  }
 
   const handleCreateAndPay = async () => {
     if (!product?.id || !publicKey) {
@@ -118,13 +145,8 @@ export function BountyModal({ isOpen, onClose, product }: BountyModalProps) {
       return
     }
 
-    // Check if user is verified buyer or supplier
-    const isSupplier = user.role === 'SUPPLIER'
-    // @ts-ignore
-    const isVerifiedBuyer = user.role === 'BUYER' && user.isVerified
-    
-    if (!isSupplier && !isVerifiedBuyer) {
-      setError("Only verified buyers and suppliers can create bounties")
+    if (!isVerified) {
+      setError(verifReason || "You are not authorized to create a bounty for this product.")
       setStep("error")
       return
     }
@@ -253,6 +275,21 @@ export function BountyModal({ isOpen, onClose, product }: BountyModalProps) {
               </div>
             )}
 
+            {isConnected && !checkingVerif && !isVerified && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex gap-2">
+                <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-300">
+                  {verifReason || "You must be a verified supplier (>5 sales) or have bought this product."}
+                </p>
+              </div>
+            )}
+
+            {checkingVerif && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                <Loader2 className="w-3 h-3 animate-spin" /> Checking verification status...
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300">What do you want to verify?</label>
               <Textarea
@@ -290,7 +327,7 @@ export function BountyModal({ isOpen, onClose, product }: BountyModalProps) {
             <div className="flex flex-col gap-3">
               <Button
                 onClick={() => setStep("confirm")}
-                disabled={!amount || !description || !isConnected}
+                disabled={!amount || !description || !isConnected || !isVerified}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 rounded-xl"
               >
                 Stellar Pay (External Wallet)
@@ -300,7 +337,7 @@ export function BountyModal({ isOpen, onClose, product }: BountyModalProps) {
                   <>
                     <Button
                       onClick={() => handleUpiBounty()}
-                      disabled={!amount || !description}
+                      disabled={!amount || !description || !isVerified}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl"
                     >
                       UPI Pay
@@ -308,7 +345,7 @@ export function BountyModal({ isOpen, onClose, product }: BountyModalProps) {
                     {user?.role === 'SUPPLIER' && (
                       <Button
                         onClick={() => handleManagedWalletBounty()}
-                        disabled={!amount || !description}
+                        disabled={!amount || !description || !isVerified}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 rounded-xl"
                       >
                         Managed Wallet

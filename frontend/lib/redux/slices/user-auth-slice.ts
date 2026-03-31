@@ -47,6 +47,12 @@ export const loginUser = createAsyncThunk(
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.message || 'Login failed')
+    
+    // Trigger sync for other tabs
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('auth_sync', Date.now().toString())
+    }
+    
     return data.data.user as UserProfile
   }
 )
@@ -56,6 +62,12 @@ export const logoutUser = createAsyncThunk('userAuth/logout', async () => {
     method: 'POST',
     credentials: 'include',
   })
+  
+  // Trigger sync for other tabs
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('auth_sync')
+    localStorage.setItem('auth_logout', Date.now().toString())
+  }
 })
 
 const userAuthSlice = createSlice({

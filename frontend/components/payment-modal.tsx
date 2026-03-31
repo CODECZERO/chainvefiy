@@ -23,13 +23,13 @@ export function PaymentModal({
   initialCurrency?: "USDC" | "XLM" | "BTC" | "ETH"
 }) {
   const { user } = useSelector((s: RootState) => s.userAuth)
-  const { publicKey } = useWallet()
+  const { publicKey, signTransaction } = useWallet()
   const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
 
   const [currency, setCurrency] = React.useState<"USDC" | "XLM" | "BTC" | "ETH">(initialCurrency)
   const [quote, setQuote] = React.useState<any>(null)
   const [loadingQuote, setLoadingQuote] = React.useState(false)
-  const [paying, setPaying] = React.useState<null | "wallet" | "upi">(null)
+  const [paying, setPaying] = React.useState<null | "wallet" | "upi" | "supplier_wallet">(null)
   const [success, setSuccess] = React.useState<null | { txHash: string; orderId?: string; qrCodeUrl?: string }>(null)
 
   const targetUsdc = Number(product.priceUsdc || 0)
@@ -47,10 +47,14 @@ export function PaymentModal({
     const run = async () => {
       setLoadingQuote(true)
       try {
+        const token = localStorage.getItem('accessToken')
         const res = await fetch(`${api}/payments/quote`, {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ sourceCurrency: currency, targetUsdcAmount: targetUsdc }),
         })
         const json = await res.json()
@@ -63,20 +67,26 @@ export function PaymentModal({
     }
 
     run()
-  }, [api, currency, isOpen, targetUsdc])
+  }, [api, currency, isOpen, targetUsdc, publicKey])
 
   const createOrder = async (opts: {
+    id?: string
     paymentMethod: "STELLAR_USDC" | "UPI" | "INTERNAL"
     sourceCurrency: string
     sourceAmount?: number
     escrowTxId: string
   }) => {
     if (!user?.id && !publicKey) throw new Error("Login or wallet connection required")
+    const token = localStorage.getItem('accessToken')
     const res = await fetch(`${api}/orders`, {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({
+        id: opts.id,
         productId: product.id,
         buyerId: user?.id,
         stellarWallet: publicKey,
@@ -109,6 +119,8 @@ export function PaymentModal({
     try {
       const { submitEscrowTransaction } = await import("@/lib/stellar-utils")
       
+      const orderId = crypto.randomUUID(); // Pre-generate to avoid Soroban ID collisions
+
       // 1. Submit Escrow Transaction on Stellar (via Soroban)
       const isXlm = currency === "XLM"
       const sourceAmount = isXlm && quote?.sourceAmount ? Number(quote.sourceAmount) : Number(product.priceUsdc)
@@ -118,15 +130,16 @@ export function PaymentModal({
         supplierPublicKey: product.supplier?.stellarWallet || "GB5CLXT47BNHNXLR67QSNB5FBM5NTSFSO6IUJCMSO6BY6ZYBTYJGY566", // Fallback issuer if not provided
         totalAmount: sourceAmount,
         lockedAmount: sourceAmount / 2, // 50% locked
-        taskId: product.id,
+        taskId: orderId, // Use unique generated order ID!
         deadline: Math.floor(Date.now() / 1000) + (3600 * 24 * 7), // 7 days
         asset: isXlm ? "XLM" : "USDC"
-      }, useWallet().signTransaction)
+      }, signTransaction)
 
       if (!result.success) throw new Error("Stellar transaction failed")
 
       const txHash = result.hash
       const order = await createOrder({
+        id: orderId,
         paymentMethod: "STELLAR_USDC",
         sourceCurrency: currency,
         sourceAmount: quote?.sourceAmount ? Number(quote.sourceAmount) : undefined,
@@ -144,33 +157,33 @@ export function PaymentModal({
     }
   }
 
-  const handleUpiPay = async () => {
-    setPaying("upi")
+  const handleSupplierWalletPay = async () => {
+    setPaying("supplier_wallet")
     try {
-      const initRes = await fetch(`${api}/payments/upi/initiate`, {
+      const token = localStorage.getItem('accessToken')
+      const initRes = await fetch(`${api}/orders/supplier-buy`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
-          amountInr: Number(product.priceInr),
           productId: product.id,
+          quantity: 1,
         }),
       })
       const initJson = await initRes.json()
-      if (!initRes.ok) throw new Error(initJson?.message || "UPI initiation failed")
+      if (!initRes.ok) throw new Error(initJson?.message || "Backend wallet payment failed")
 
-      const txHash = `upi_mock_${initJson.data?.razorpayOrderId || Math.random().toString(36).slice(2)}`
-      const order = await createOrder({
-        paymentMethod: "UPI",
-        sourceCurrency: "INR",
-        sourceAmount: Number(product.priceInr),
-        escrowTxId: txHash,
-      })
+      const order = initJson.data
       setSuccess({ 
-        txHash, 
+        txHash: order?.escrowTxId, 
         orderId: order?.id, 
         qrCodeUrl: order?.qrCodeUrl 
       })
+    } catch (e: any) {
+      alert(e.message || "Supplier wallet payment failed")
     } finally {
       setPaying(null)
     }
@@ -301,9 +314,9 @@ export function PaymentModal({
                   variant="outline" 
                   disabled={paying !== null || !user?.id} 
                   className="w-full border-primary/20 hover:bg-primary/5" 
-                  onClick={handleUpiPay}
+                  onClick={handleSupplierWalletPay}
                 >
-                  {paying === "upi" ? "Processing..." : "Pay with UPI (Internal API)"}
+                  {paying === "supplier_wallet" ? "Processing..." : "Pay with Backend Wallet"}
                 </Button>
               )}
 

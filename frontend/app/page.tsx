@@ -13,56 +13,55 @@ import {
   Leaf, Shirt, Droplet, Apple, Coffee, Flower,
   ShoppingBag, ThumbsUp
 } from "lucide-react"
+import { getProducts, getStats } from "@/lib/api-service"
+import { convertInrToUsdc, getUSDCInrRate } from "@/lib/exchange-rates"
+import { motion, useInView } from "framer-motion"
 
-// ─── Data ───
 const TRUST_SIGNALS = [
   { icon: <Lock className="w-4 h-4" />, text: "Escrow Protected" },
   { icon: <Eye className="w-4 h-4" />, text: "Community Verified" },
-  { icon: <Globe className="w-4 h-4" />, text: "On-Chain Records" },
+  { icon: <Globe className="w-4 h-4" />, text: "Immutable On-Chain Records" },
 ]
 
 const STATS_CONFIG = [
-  { key: "verifiedProducts", label: "Products Verified", defaultValue: 0, suffix: "+", icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" /> },
-  { key: "totalSuppliers", label: "Active Suppliers", defaultValue: 0, suffix: "+", icon: <Users className="w-5 h-5 text-orange-400" /> },
-  { key: "totalUsdcTransacted", label: "USDC Transacted", defaultValue: 0, prefix: "$", suffix: "+", icon: <Wallet className="w-5 h-5 text-purple-400" /> },
-  { key: "avgVerifyTime", label: "Avg Verify Time", defaultValue: 0, suffix: " hrs", icon: <Zap className="w-5 h-5 text-amber-400" /> },
+  { key: "verifiedProducts", label: "Products Verified", defaultValue: 0, suffix: "+", icon: <CheckCircle2 className="w-6 h-6 text-emerald-400" /> },
+  { key: "totalSuppliers", label: "Active Suppliers", defaultValue: 0, suffix: "+", icon: <Users className="w-6 h-6 text-orange-400" /> },
+  { key: "totalUsdcTransacted", label: "USDC Transacted", defaultValue: 0, prefix: "$", suffix: "+", icon: <Wallet className="w-6 h-6 text-blue-400" /> },
+  { key: "avgVerifyTime", label: "Avg Verify Time", defaultValue: 0, suffix: " hrs", icon: <Zap className="w-6 h-6 text-amber-400" /> },
 ]
 
 const HOW_IT_WORKS = [
   {
     step: "01",
-    icon: <MessageCircle className="w-6 h-6" />,
-    color: "from-green-500 to-emerald-600",
-    title: "List via WhatsApp",
-    desc: "Send photos & videos of your product on WhatsApp. No app download needed. Our AI guides you in 2 minutes.",
+    icon: <MessageCircle className="w-8 h-8" />,
+    color: "from-green-500 to-emerald-600 shadow-[0_0_30px_rgba(16,185,129,0.2)]",
+    title: "List Effortlessly via WhatsApp",
+    desc: "Send photos & videos of your product on WhatsApp. No app download needed. Our AI guides you in 2 minutes and creates a beautiful listing.",
   },
   {
     step: "02",
-    icon: <ShieldCheck className="w-6 h-6" />,
-    color: "from-blue-500 to-cyan-500",
-    title: "Community Verifies",
-    desc: "Real buyers vote on authenticity. 60%+ real votes earns Verified badge. Every vote is permanent on Stellar.",
+    icon: <ShieldCheck className="w-8 h-8" />,
+    color: "from-blue-500 to-cyan-500 shadow-[0_0_30px_rgba(59,130,246,0.2)]",
+    title: "Community Verification",
+    desc: "Real buyers vote on authenticity. 60%+ real votes earns the Verified badge. Every vote is permanently recorded on the Stellar blockchain.",
   },
   {
     step: "03",
-    icon: <Wallet className="w-6 h-6" />,
-    color: "from-purple-500 to-indigo-500",
-    title: "Pay → USDC Escrow",
-    desc: "Buyers pay in XLM, BTC, ETH, or UPI. Auto-converted to USDC via Stellar DEX. Held in Soroban escrow until delivery.",
+    icon: <Wallet className="w-8 h-8" />,
+    color: "from-purple-500 to-indigo-500 shadow-[0_0_30px_rgba(168,85,247,0.2)]",
+    title: "Secure USDC Escrow Payments",
+    desc: "Buyers pay with their preferred currency. Funds are auto-converted to USDC via Stellar DEX and held in secure Soroban escrow until delivery is confirmed.",
   },
 ]
 
 const PAYMENT_METHODS = [
-  { name: "XLM", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
-  { name: "USDC", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  { name: "BTC", color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
-  { name: "ETH", color: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" },
-  { name: "UPI", color: "bg-green-500/10 text-green-400 border-green-500/20" },
+  { name: "USDC", color: "bg-blue-500/10 text-blue-400 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.15)]" },
+  { name: "XLM", color: "bg-purple-500/10 text-purple-400 border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.15)]" },
+  { name: "BTC", color: "bg-orange-500/10 text-orange-400 border-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.15)]" },
+  { name: "ETH", color: "bg-indigo-500/10 text-indigo-400 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]" },
+  { name: "UPI", color: "bg-green-500/10 text-green-400 border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.15)]" },
 ]
 
-const FEATURED: any[] = []
-
-// ─── Animated Counter ───
 function AnimatedCounter({ end, prefix = "", suffix = "" }: { end: number, prefix?: string, suffix?: string }) {
   const [count, setCount] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
@@ -70,11 +69,8 @@ function AnimatedCounter({ end, prefix = "", suffix = "" }: { end: number, prefi
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !started) {
-        setStarted(true)
-      }
+      if (entry.isIntersecting && !started) setStarted(true)
     }, { threshold: 0.3 })
-
     if (ref.current) observer.observe(ref.current)
     return () => observer.disconnect()
   }, [started])
@@ -98,56 +94,21 @@ function AnimatedCounter({ end, prefix = "", suffix = "" }: { end: number, prefi
   }, [started, end])
 
   return (
-    <div ref={ref} className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+    <div ref={ref} className="text-5xl md:text-6xl font-bold font-mono tracking-tighter text-white drop-shadow-2xl">
       {prefix}{count.toLocaleString()}{suffix}
     </div>
   )
 }
 
-import { getProducts, getStats } from "@/lib/api-service"
-import { convertInrToUsdc, getUSDCInrRate } from "@/lib/exchange-rates"
-
-// ─── Main Page ───
 export default function Home() {
-  const [featured, setFeatured] = useState<any[]>(FEATURED)
   const [stats, setStats] = useState<any>({
     verifiedProducts: 0,
     totalSuppliers: 0,
     totalUsdcTransacted: 0,
     avgVerifyTime: 0
   })
-  const [usdcInr, setUsdcInr] = useState(83.33)
 
   useEffect(() => {
-    getUSDCInrRate().then(setUsdcInr).catch(() => {})
-
-    // Fetch products
-    getProducts({ status: 'VERIFIED', limit: '6' })
-      .then(res => {
-        if (res.data && res.data.length > 0) {
-          const mapped = res.data.slice(0, 6).map((p: any) => ({
-            id: p.id,
-            title: p.title,
-            supplier: p.supplier?.name || "Unknown",
-            location: p.supplier?.location || "Unknown",
-            price: `₹${p.priceInr}`,
-            usdc: (
-              (typeof p.priceUsdc === "number" && p.priceUsdc > 0)
-                ? p.priceUsdc
-                : convertInrToUsdc(Number(p.priceInr) || 0, usdcInr)
-            ).toFixed(2),
-            votes: p.voteReal || 0,
-            fakes: p.voteFake || 0,
-            icon: p.proofMediaUrls?.[0] ? null : <Package className="w-12 h-12 text-slate-500 opacity-60" />,
-            image: p.proofMediaUrls?.[0],
-            category: p.category || "Other"
-          }))
-          setFeatured(mapped)
-        }
-      })
-      .catch(console.error)
-
-    // Fetch stats
     getStats()
       .then(res => {
         if (res.success && res.data) {
@@ -163,339 +124,258 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-hidden">
+    <div className="min-h-screen bg-[#06080A] text-foreground overflow-hidden">
       <Header />
 
-      {/* ══════════ HERO ══════════ */}
-      <section className="relative py-20 md:py-28 px-4">
-        {/* Background orbs */}
-        <div className="orb w-[500px] h-[500px] bg-orange-600/20 -top-40 -left-40 animate-float" />
-        <div className="orb w-[400px] h-[400px] bg-emerald-600/15 top-20 right-[-10%] animate-float delay-200" />
-        <div className="orb w-[300px] h-[300px] bg-amber-600/10 bottom-0 left-1/3 animate-float delay-400" />
+      {/* ══════════ HERO SECTION ══════════ */}
+      <section className="relative pt-32 pb-24 md:pt-48 md:pb-36 px-4 overflow-hidden">
+        {/* Background glow effects */}
+        <div className="absolute top-0 right-[-10%] w-[800px] h-[800px] bg-orange-500/10 blur-[150px] rounded-full pointer-events-none" />
+        <div className="absolute top-[20%] left-[-10%] w-[600px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
+        <div className="noise" />
 
-        <div className="relative max-w-6xl mx-auto">
-          {/* Trust badges row */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-8 animate-fade-in-up">
+        <div className="relative max-w-7xl mx-auto z-10">
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="flex flex-wrap items-center justify-center gap-3 mb-10"
+          >
             {TRUST_SIGNALS.map((s) => (
               <span
                 key={s.text}
-                className="inline-flex items-center gap-1.5 bg-background/60 border border-border rounded-full px-3.5 py-1.5 text-xs text-muted-foreground font-medium backdrop-blur-sm"
+                className="inline-flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-full px-5 py-2.5 text-sm text-slate-300 font-semibold backdrop-blur-xl shadow-lg"
               >
                 {s.icon} {s.text}
               </span>
             ))}
-          </div>
+          </motion.div>
 
-          {/* Headline */}
-          <div className="text-center">
-            <h1
-              className="text-4xl sm:text-5xl md:text-7xl font-semibold tracking-tight mb-5 animate-fade-in-up delay-100"
-              style={{ animationFillMode: "both" }}
-            >
-              A verified marketplace for real products.
-              <span className="block mt-2 gradient-text">Paid safely in escrow.</span>
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.2 }}
+            className="text-center max-w-5xl mx-auto"
+          >
+            <h1 className="text-6xl sm:text-7xl md:text-[6rem] leading-[1.05] font-extrabold tracking-tight mb-8">
+              Verified Marketplace.<br />
+              <span className="text-glow-orange text-orange-400">Real Products.</span>
             </h1>
 
-          {/* Sub */}
-            <p
-              className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-8 leading-relaxed animate-fade-in-up delay-200"
-              style={{ animationFillMode: "both" }}
-            >
-              Community verification builds trust. Multi-currency checkout settles in USDC. Funds are released only after
-              delivery confirmation.
+            <p className="text-xl md:text-2xl text-slate-400 max-w-3xl mx-auto mb-12 leading-relaxed font-light">
+              Community verification builds absolute trust. Multi-currency checkout settles in USDC. Funds are released only after immutable delivery confirmation.
             </p>
 
-          {/* CTA Buttons */}
-            <div
-              className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in-up delay-300"
-              style={{ animationFillMode: "both" }}
-            >
-            <Link href="/marketplace">
-              <Button className="px-6 h-11 rounded-xl font-semibold">
-                Browse marketplace <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
-            <Link href="/seller-dashboard">
-              <Button variant="outline" className="px-6 h-11 rounded-xl font-semibold">
-                 Start Selling (Web) <ArrowUpRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
-            <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=NEW`} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" className="px-6 h-11 rounded-xl font-semibold text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10">
-                <MessageCircle className="w-4 h-4 mr-2" /> Sell via WhatsApp
-              </Button>
-            </a>
-          </div>
-
-          {/* Powered by */}
-            <div
-              className="mt-8 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground animate-fade-in-up delay-500"
-              style={{ animationFillMode: "both" }}
-            >
-              <Badge variant="secondary" className="gap-1.5">
-                <Sparkles className="w-3 h-3" /> Stellar
-              </Badge>
-              <Badge variant="secondary" className="gap-1.5">
-                <Lock className="w-3 h-3" /> Soroban escrow
-              </Badge>
-              <Badge variant="secondary" className="gap-1.5">
-                <Zap className="w-3 h-3" /> NVIDIA NIM
-              </Badge>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════ STATS ══════════ */}
-      <section className="relative border-y border-border bg-background">
-        <div className="max-w-6xl mx-auto px-4 py-16 grid grid-cols-2 md:grid-cols-4 gap-8">
-          {STATS_CONFIG.map((s) => (
-            <div key={s.label} className="text-center group">
-              <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-muted border border-border flex items-center justify-center transition-colors">
-                {s.icon}
-              </div>
-              <AnimatedCounter end={stats[s.key as keyof typeof stats] || s.defaultValue} prefix={s.prefix} suffix={s.suffix} />
-              <div className="text-sm text-muted-foreground mt-2 font-medium">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ══════════ HOW IT WORKS ══════════ */}
-      <section className="max-w-6xl mx-auto px-4 py-24">
-        <div className="text-center mb-16">
-          <span className="text-xs font-semibold text-orange-400 uppercase tracking-widest mb-3 block">Simple Process</span>
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight">How Pramanik Works</h2>
-          <p className="text-slate-400 mt-4 max-w-lg mx-auto">Three steps from listing to verified payment — no app download required</p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-6">
-          {HOW_IT_WORKS.map((s, i) => (
-            <div key={s.step} className="glass-card rounded-3xl p-8 relative group" style={{ animationDelay: `${i * 150}ms` }}>
-              {/* Step number */}
-              <span className="absolute top-6 right-6 text-6xl font-black text-white/[0.03] select-none">{s.step}</span>
-              {/* Icon */}
-              <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white mb-6 shadow-lg`}>
-                {s.icon}
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">{s.title}</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">{s.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ══════════ PAYMENT METHODS ══════════ */}
-      <section className="border-y border-white/[0.04] bg-white/[0.01] py-20 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <span className="text-xs font-semibold text-purple-400 uppercase tracking-widest mb-3 block">Multi-Currency</span>
-          <h2 className="text-3xl md:text-4xl font-bold mb-3">Pay Your Way. Always Settled in USDC.</h2>
-          <p className="text-slate-400 mb-12 text-sm max-w-lg mx-auto">
-            Powered by Stellar DEX — instant conversion, real money value, zero volatility risk for suppliers
-          </p>
-
-          <div className="flex flex-wrap justify-center gap-3 mb-8">
-            {PAYMENT_METHODS.map((p) => (
-              <div key={p.name} className={`${p.color} border rounded-2xl px-6 py-4 flex items-center gap-3 font-bold text-lg backdrop-blur-sm hover:scale-105 transition-transform cursor-default`}>
-                {p.name}
-                <ArrowRight className="w-4 h-4 opacity-40" />
-                <span className="text-blue-400 font-bold">USDC</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="inline-flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-5 py-3">
-            <Lock className="w-4 h-4 text-emerald-400" />
-            <span className="text-sm text-slate-400">Funds held in <span className="text-white font-medium">Soroban escrow</span> until delivery confirmed</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════ FEATURED PRODUCTS ══════════ */}
-      <section className="max-w-7xl mx-auto px-4 py-20">
-        <div className="flex items-end justify-between mb-12">
-          <div>
-            <span className="text-xs font-semibold text-emerald-400 uppercase tracking-widest mb-3 block">Marketplace</span>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Verified Products</h2>
-            <p className="text-muted-foreground mt-2">Community-verified listings ready to order</p>
-          </div>
-          <Link href="/marketplace">
-            <Button variant="outline" className="rounded-xl h-11 px-4 hidden md:flex">
-              View All <ArrowUpRight className="w-4 h-4 ml-1.5" />
-            </Button>
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featured.map((p, i) => (
-            <Card key={p.title} className="overflow-hidden group" style={{ animationDelay: `${i * 100}ms` }}>
-              <div className="relative h-48 bg-muted overflow-hidden">
-                {p.image ? (
-                  <img
-                    src={p.image}
-                    alt={p.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    {p.icon}
-                  </div>
-                )}
-
-                <div className="absolute top-3 left-3 flex items-center gap-2">
-                  <Badge className="gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Verified
-                  </Badge>
-                  <Badge variant="secondary">{p.category}</Badge>
-                </div>
-              </div>
-
-              <div className="p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold truncate">{p.title}</h3>
-                    <p className="text-muted-foreground text-sm mt-1 flex items-center gap-1">
-                      <Award className="w-3.5 h-3.5 text-muted-foreground" /> {p.supplier} · {p.location}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-lg font-semibold">{p.price}</div>
-                    <div className="text-xs text-muted-foreground font-mono">≈ {p.usdc} USDC</div>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" /> {p.votes} real
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <XCircle className="w-3 h-3 text-red-500" /> {p.fakes} fake
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-500 rounded-full transition-all duration-700"
-                      style={{ width: `${(p.votes / Math.max(1, p.votes + p.fakes)) * 100}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-5 flex gap-2">
-                  <Button asChild className="flex-1">
-                    <Link href={p.id ? `/product/${p.id}` : "/marketplace"}>View product</Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link href="/marketplace">More</Link>
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        {/* Mobile View All */}
-        <div className="mt-8 text-center md:hidden">
-          <Link href="/marketplace">
-            <Button variant="outline" className="rounded-2xl h-auto py-3 px-8">
-              View All Products <ArrowRight className="w-4 h-4 ml-1.5" />
-            </Button>
-          </Link>
-        </div>
-      </section>
-
-      {/* ══════════ WHATSAPP CTA ══════════ */}
-      <section className="mx-4 md:mx-auto max-w-6xl mb-24">
-        <div className="relative overflow-hidden glass-card rounded-[2rem] px-8 md:px-14 py-16">
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-green-950/60 via-transparent to-transparent" />
-          <div className="orb w-[300px] h-[300px] bg-green-600/20 -top-20 -left-20" />
-
-          <div className="relative flex flex-col md:flex-row items-center gap-12">
-            <div className="flex-1 text-center md:text-left">
-              <span className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-4 py-2 text-xs text-green-400 font-semibold mb-6">
-                <MessageCircle className="w-3.5 h-3.5" /> WhatsApp First — No App Needed
-              </span>
-              <h2 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-                Start Selling<br />in 2 Minutes
-              </h2>
-              <p className="text-slate-400 mb-8 leading-relaxed max-w-md">
-                No app download. No complicated setup. No website needed.
-                Just WhatsApp us your product photos and our NVIDIA-powered AI lists it automatically.
-              </p>
-              <a
-                href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=NEW`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button className="bg-green-600 hover:bg-green-500 text-white px-8 py-4 rounded-2xl font-semibold text-base h-auto shadow-lg shadow-green-600/25 hover:shadow-green-500/40 transition-all">
-                  <MessageCircle className="w-5 h-5 mr-2" /> Open WhatsApp
+            <div className="flex flex-col sm:flex-row gap-5 justify-center">
+              <Link href="/marketplace">
+                <Button className="w-full sm:w-auto px-10 h-16 rounded-[1.25rem] text-lg font-bold bg-white text-black hover:bg-slate-200 shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:shadow-[0_0_60px_rgba(255,255,255,0.25)] transition-all">
+                  Enter Marketplace <ArrowRight className="w-5 h-5 ml-2 border border-black/20 rounded-full p-0.5" />
+                </Button>
+              </Link>
+              <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=NEW`} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" className="w-full sm:w-auto px-10 h-16 rounded-[1.25rem] text-lg font-bold border-green-500/30 text-green-400 bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.1)] transition-all">
+                  <MessageCircle className="w-5 h-5 mr-2.5" /> Sell via WhatsApp
                 </Button>
               </a>
             </div>
 
-            {/* Chat preview */}
-            <div className="bg-[#0a0e1a] border border-white/[0.06] rounded-3xl p-5 w-80 shrink-0 font-mono text-xs space-y-3 animate-pulse-glow">
-              <div className="text-slate-500 text-center pb-3 border-b border-white/[0.06] flex items-center justify-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                Pramanik AI Bot
+            <div className="mt-16 flex flex-wrap items-center justify-center gap-4 text-sm text-slate-500 uppercase tracking-widest font-semibold">
+              <span className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-slate-400" /> Powered by Stellar</span>
+              <span className="hidden sm:inline text-slate-700">•</span>
+              <span className="flex items-center gap-2"><Lock className="w-4 h-4 text-slate-400" /> Soroban Smart Escrow</span>
+              <span className="hidden sm:inline text-slate-700">•</span>
+              <span className="flex items-center gap-2"><Zap className="w-4 h-4 text-slate-400" /> NVIDIA AI</span>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ══════════ LIVE STATS ══════════ */}
+      <section className="relative bg-[#0A0D14] border-y border-white/[0.04] py-24">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+        
+        <div className="max-w-7xl mx-auto px-4 relative z-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-12 text-center divide-y sm:divide-y-0 sm:divide-x divide-white/[0.06]">
+          {STATS_CONFIG.map((s, i) => (
+            <motion.div 
+              key={s.label}
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.6, delay: i * 0.1 }}
+              className="px-6 py-6 sm:py-0"
+            >
+              <div className="w-14 h-14 mx-auto mb-6 rounded-2xl bg-[#111827] border border-white/[0.08] shadow-lg flex items-center justify-center text-white">
+                {s.icon}
               </div>
-              <div className="flex justify-end"><span className="bg-green-700 rounded-2xl rounded-tr-sm px-4 py-2 text-white">NEW</span></div>
-              <div className="flex justify-start"><span className="bg-white/[0.06] rounded-2xl rounded-tl-sm px-4 py-2 text-slate-200">Let&apos;s list your product! <ShoppingBag className="w-3.5 h-3.5 inline mb-0.5" /> What is your product name?</span></div>
-              <div className="flex justify-end"><span className="bg-green-700 rounded-2xl rounded-tr-sm px-4 py-2 text-white">Organic Turmeric 500g</span></div>
-              <div className="flex justify-start"><span className="bg-white/[0.06] rounded-2xl rounded-tl-sm px-4 py-2 text-slate-200">Great! <ThumbsUp className="w-3.5 h-3.5 inline mb-0.5" /> Price in INR?</span></div>
-              <div className="flex justify-end"><span className="bg-green-700 rounded-2xl rounded-tr-sm px-4 py-2 text-white">450</span></div>
-              <div className="flex justify-start"><span className="bg-white/[0.06] rounded-2xl rounded-tl-sm px-4 py-2 text-slate-200"><CheckCircle2 className="w-3.5 h-3.5 inline mb-0.5 text-green-400" /> Listed for ≈5.30 USDC! Pending verification.</span></div>
+              <AnimatedCounter end={stats[s.key as keyof typeof stats] || s.defaultValue} prefix={s.prefix} suffix={s.suffix} />
+              <div className="text-base text-slate-400 mt-3 font-semibold uppercase tracking-widest">{s.label}</div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ══════════ PROCESS ══════════ */}
+      <section className="py-32 bg-[#06080A]">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-20 max-w-3xl mx-auto">
+            <span className="inline-flex items-center gap-2 bg-orange-500/10 text-orange-400 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-widest mb-6">
+              Lightning Fast Onboarding
+            </span>
+            <h2 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6">Built for simplicity.</h2>
+            <p className="text-xl text-slate-400 leading-relaxed">
+              We abstracted away the complex blockchain mechanics. You interact via familiar interfaces while Soroban handles the heavy lifting in the background.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            {HOW_IT_WORKS.map((s, i) => (
+              <motion.div 
+                key={s.step} 
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.7, delay: i * 0.2 }}
+                className="premium-card rounded-[2.5rem] p-10 relative overflow-hidden group"
+              >
+                <div className="absolute top-10 right-10 text-[8rem] font-bold text-white/[0.02] leading-none select-none pointer-events-none group-hover:scale-110 group-hover:text-white/[0.03] transition-all duration-700">
+                  {s.step}
+                </div>
+                
+                <div className={`w-20 h-20 rounded-[1.5rem] bg-gradient-to-br ${s.color} flex items-center justify-center text-white mb-8 relative z-10`}>
+                  {s.icon}
+                </div>
+                
+                <h3 className="text-2xl font-bold text-white mb-4 relative z-10">{s.title}</h3>
+                <p className="text-lg text-slate-400 leading-relaxed relative z-10">{s.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ PAYMENTS ══════════ */}
+      <section className="bg-[#0A0D14] border-y border-white/[0.04] py-32 px-4 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-blue-500/10 blur-[150px] rounded-[100%] pointer-events-none" />
+        
+        <div className="max-w-5xl mx-auto text-center relative z-10">
+          <span className="inline-flex items-center gap-2 bg-blue-500/10 text-blue-400 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-widest mb-6">
+            Global Liquidity
+          </span>
+          <h2 className="text-5xl md:text-6xl font-extrabold mb-8 tracking-tight">Pay your way. Settled in USDC.</h2>
+          <p className="text-xl text-slate-400 mb-16 max-w-2xl mx-auto leading-relaxed">
+            Stellar DEX handles path payments instantly behind the scenes. Zero volatility risk. Absolute certainty for suppliers.
+          </p>
+
+          <div className="flex flex-wrap justify-center gap-4 mb-12">
+            {PAYMENT_METHODS.map((p, i) => (
+              <motion.div 
+                key={p.name}
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                className={`${p.color} border-2 rounded-2xl px-8 py-5 flex items-center gap-4 font-bold text-xl backdrop-blur-xl hover:scale-105 transition-transform duration-300 cursor-default bg-[#0C0F17]/80`}
+              >
+                {p.name}
+                <ArrowRight className="w-5 h-5 opacity-40 mix-blend-screen" />
+                <span className="text-white font-black bg-blue-600/20 px-3 py-1 rounded-lg">USDC</span>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="inline-flex items-center gap-3 bg-[#0C0F17] border border-white/[0.08] shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-2xl px-6 py-4">
+            <Lock className="w-5 h-5 text-emerald-400" />
+            <span className="text-base text-slate-300 font-medium tracking-wide">
+              Smart contracts lock funds until <span className="text-white font-bold underline decoration-emerald-500/50 underline-offset-4">delivery is verified</span>.
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ WHATSAPP CTA CTA ══════════ */}
+      <section className="py-32 px-4 max-w-7xl mx-auto">
+        <div className="premium-card rounded-[3rem] px-8 py-16 md:p-20 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-green-950/80 to-[#111827] pointer-events-none" />
+          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-green-500/20 blur-[120px] rounded-full pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-16">
+            <div className="flex-1 text-center lg:text-left max-w-2xl">
+              <span className="inline-flex items-center gap-2 bg-green-500/20 border border-green-500/30 text-green-400 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-widest mb-6">
+                <MessageCircle className="w-4 h-4" /> Start In Seconds
+              </span>
+              <h2 className="text-5xl md:text-6xl font-extrabold mb-8 tracking-tight leading-[1.1]">
+                Your storefront,<br/>living in WhatsApp.
+              </h2>
+              <p className="text-xl text-slate-300 mb-10 leading-relaxed font-light">
+                Send photos. Tell us the price. Our AI builds your premium blockchain listing instantly. No emails, no complex dashboards.
+              </p>
+              <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=NEW`} target="_blank" rel="noopener noreferrer" className="inline-block">
+                <Button className="h-16 px-10 rounded-2xl text-lg font-bold bg-green-500 hover:bg-green-400 text-white shadow-[0_0_40px_rgba(34,197,94,0.3)] hover:shadow-[0_0_60px_rgba(34,197,94,0.4)] transition-all border-0">
+                  Open WhatsApp <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </a>
+            </div>
+
+            <div className="bg-[#06080A]/90 backdrop-blur-3xl border border-white/[0.08] rounded-[2.5rem] p-6 w-full max-w-md shrink-0 shadow-2xl font-mono text-sm space-y-4">
+              <div className="flex items-center justify-center gap-3 pb-5 border-b border-white/[0.06] text-slate-400 font-sans font-semibold">
+                <div className="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_10px_rgba(34,197,94,0.8)] animate-pulse" />
+                Pramanik AI Assitant
+              </div>
+              <div className="flex flex-col gap-4 py-2">
+                <div className="flex justify-end"><span className="bg-green-600/90 text-white rounded-2xl rounded-tr-sm px-5 py-3 shadow-sm text-base">NEW</span></div>
+                <div className="flex justify-start"><span className="bg-white/[0.05] text-slate-200 border border-white/[0.05] rounded-2xl rounded-tl-sm px-5 py-3 text-base">Let's create a listing. <ShoppingBag className="w-4 h-4 inline mb-1 mx-1" /> What is the name of your product?</span></div>
+                <div className="flex justify-end"><span className="bg-green-600/90 text-white rounded-2xl rounded-tr-sm px-5 py-3 shadow-sm text-base">Organic Matcha 200g</span></div>
+                <div className="flex justify-start"><span className="bg-white/[0.05] text-slate-200 border border-white/[0.05] rounded-2xl rounded-tl-sm px-5 py-3 text-base">Perfect. Price in INR?</span></div>
+                <div className="flex justify-end"><span className="bg-green-600/90 text-white rounded-2xl rounded-tr-sm px-5 py-3 shadow-sm text-base">650</span></div>
+                <div className="flex justify-start"><span className="bg-white/[0.05] text-slate-200 border border-white/[0.05] rounded-2xl rounded-tl-sm px-5 py-3 text-base"><CheckCircle2 className="w-4 h-4 inline mb-1 mr-1 text-green-400" /> Done. Listed for ≈7.80 USDC!</span></div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ══════════ FOOTER ══════════ */}
-      <footer className="border-t border-white/[0.04] py-14 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row items-start justify-between gap-10 mb-10">
-            {/* Brand */}
-            <div>
-              <div className="flex items-center gap-2.5 font-bold text-xl mb-3">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500 to-emerald-500 flex items-center justify-center">
-                  <ShieldCheck className="w-4 h-4 text-white" />
+      <footer className="border-t border-white/[0.04] bg-[#0A0D14] py-16 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col lg:flex-row justify-between gap-12 mb-16">
+            <div className="max-w-xs">
+              <div className="flex items-center gap-3 font-extrabold text-2xl mb-4 tracking-tight">
+                <div className="w-10 h-10 rounded-[14px] bg-gradient-to-br from-orange-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                  <ShieldCheck className="w-5 h-5 text-white" />
                 </div>
                 Pramanik
               </div>
-              <p className="text-slate-500 text-sm max-w-xs leading-relaxed">
-                The verified open marketplace on Stellar blockchain. Every product proven real by community consensus.
+              <p className="text-slate-500 text-sm leading-relaxed">
+                The enterprise-grade marketplace powered by absolute truth on the Stellar blockchain.
               </p>
             </div>
 
-            {/* Links */}
-            <div className="flex gap-16">
+            <div className="flex gap-16 md:gap-24">
               <div>
-                <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-4">Marketplace</div>
-                <div className="space-y-3">
-                  <Link href="/marketplace" className="block text-sm text-slate-400 hover:text-white transition-colors">Browse Products</Link>
-                  <Link href="/verify" className="block text-sm text-slate-400 hover:text-white transition-colors">Verify Products</Link>
-                  <Link href="/leaderboard" className="block text-sm text-slate-400 hover:text-white transition-colors">Leaderboard</Link>
+                <div className="text-xs text-slate-300 uppercase tracking-widest font-bold mb-6">Ecosystem</div>
+                <div className="space-y-4">
+                  <Link href="/marketplace" className="block text-base font-medium text-slate-500 hover:text-white hover:translate-x-1 transition-all">Marketplace</Link>
+                  <Link href="/verify" className="block text-base font-medium text-slate-500 hover:text-white hover:translate-x-1 transition-all">Verify Products</Link>
+                  <Link href="/leaderboard" className="block text-base font-medium text-slate-500 hover:text-white hover:translate-x-1 transition-all">Leaderboard</Link>
                 </div>
               </div>
               <div>
-                <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-4">Sellers</div>
-                <div className="space-y-3">
-                  <Link href="/seller-dashboard" className="block text-sm text-slate-400 hover:text-white transition-colors">Dashboard</Link>
-                  <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=NEW`} target="_blank" rel="noopener noreferrer" className="block text-sm text-slate-400 hover:text-white transition-colors">Sell via WhatsApp</a>
-                  <Link href="/whatsapp-setup" className="block text-sm text-slate-400 hover:text-white transition-colors">WhatsApp Setup</Link>
+                <div className="text-xs text-slate-300 uppercase tracking-widest font-bold mb-6">Partners</div>
+                <div className="space-y-4">
+                  <Link href="/seller-dashboard" className="block text-base font-medium text-slate-500 hover:text-white hover:translate-x-1 transition-all">Supplier Dashboard</Link>
+                  <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}?text=NEW`} target="_blank" rel="noopener noreferrer" className="block text-base font-medium text-slate-500 hover:text-white hover:translate-x-1 transition-all">Sell via WhatsApp</a>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Bottom */}
-          <div className="border-t border-white/[0.04] pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <span className="text-xs text-slate-600">© 2024 Pramanik. Verified marketplace on Stellar.</span>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500 border border-white/[0.06] rounded-full px-4 py-1.5 bg-white/[0.02]">Built on Stellar</span>
-              <span className="text-xs text-slate-500 border border-white/[0.06] rounded-full px-4 py-1.5 bg-white/[0.02]">Payments in USDC</span>
-              <span className="text-xs text-slate-500 border border-white/[0.06] rounded-full px-4 py-1.5 bg-white/[0.02]">AI by NVIDIA NIM</span>
+          <div className="border-t border-white/[0.06] pt-8 flex flex-col md:flex-row items-center justify-between gap-6">
+            <span className="text-sm font-medium text-slate-600">© 2024 Pramanik. All rights reserved.</span>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <span className="text-xs font-bold text-slate-400 bg-white/[0.03] border border-white/[0.06] rounded-full px-4 py-2 uppercase tracking-widest">Stellar Network</span>
+              <span className="text-xs font-bold text-slate-400 bg-white/[0.03] border border-white/[0.06] rounded-full px-4 py-2 uppercase tracking-widest">USDC Settlement</span>
+              <span className="text-xs font-bold text-slate-400 bg-white/[0.03] border border-white/[0.06] rounded-full px-4 py-2 uppercase tracking-widest">NVIDIA NIM</span>
             </div>
           </div>
         </div>

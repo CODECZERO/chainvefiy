@@ -34,3 +34,23 @@ export const verifyToken = async (req: RequestK, res: Response, next: NextFuncti
 
 // Alias for named export used in routes
 export const verifyJWT = verifyToken;
+
+/**
+ * Optional JWT: Attaches req.user if a valid token is present,
+ * but does NOT block the request if no token is provided.
+ * Use this for endpoints that support both JWT-auth and wallet-only users.
+ */
+export const optionalJWT = async (req: RequestK, _res: Response, next: NextFunction) => {
+  try {
+    const token = req.cookies?.accessToken || req.headers.authorization?.replace('Bearer ', '');
+    if (token && process.env.ATS) {
+      const decoded = jwt.verify(token, process.env.ATS) as any;
+      if (decoded?.id) {
+        req.user = { id: decoded.id, email: decoded.email, role: decoded.role };
+      }
+    }
+  } catch {
+    // Token invalid/expired — silently continue as unauthenticated
+  }
+  return next();
+};

@@ -5,7 +5,7 @@ import { getQuote, initiateUpi, upiWebhook, getPaymentStatus } from '../../contr
 
 const router = Router();
 
-router.post('/quote', verifyJWT, asyncHandler(getQuote));
+router.post('/quote', asyncHandler(getQuote));
 router.post('/upi/initiate', verifyJWT, asyncHandler(initiateUpi));
 router.post('/upi/webhook', asyncHandler(upiWebhook));
 router.get('/status/:orderId', verifyJWT, asyncHandler(getPaymentStatus));

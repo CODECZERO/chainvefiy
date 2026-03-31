@@ -28,22 +28,41 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
     role: "SUPPLIER" as "SUPPLIER",
   })
 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [localError, setLocalError] = useState<string | null>(null)
+
   useEffect(() => {
     setMode(defaultMode)
+    setLocalError(null)
   }, [defaultMode, isOpen])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setLocalError(null)
+
     if (mode === "login") {
       const result = await dispatch(loginUser({ email: form.email, password: form.password }))
       if (loginUser.fulfilled.match(result)) onClose()
     } else {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/signup`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      })
-      if (res.ok) { dispatch(loginUser({ email: form.email, password: form.password })); onClose() }
+      setIsSubmitting(true)
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/signup`, {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        })
+        if (res.ok) { 
+          dispatch(loginUser({ email: form.email, password: form.password })); 
+          onClose() 
+        } else {
+          const data = await res.json().catch(() => null);
+          setLocalError(data?.message || "Registration failed. Please try again.")
+        }
+      } catch (err) {
+        setLocalError("Network error. Please check your connection.")
+      } finally {
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -94,10 +113,10 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
           <Input type="email" placeholder="Email address" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           <Input type="password" placeholder="Password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
 
-          {error && <p className="text-destructive text-sm">{error}</p>}
+          {(localError || error) && <p className="text-destructive text-sm font-medium text-center">{localError || error}</p>}
 
-          <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? "Loading..." : mode === "login" ? "Sign in" : "Create account"}
+          <Button type="submit" disabled={isLoading || isSubmitting} className="w-full">
+            {isLoading || isSubmitting ? "Loading..." : mode === "login" ? "Sign in" : "Create account"}
           </Button>
 
           <div className="pt-2 border-t border-border mt-4">

@@ -99,7 +99,7 @@ export class NotificationsService {
             .setTimeout(30)
             .build();
         const preparedTx = await this.server.prepareTransaction(tx);
-        return preparedTx.toXDR();
+        return preparedTx.toEnvelope().toXDR('base64');
     }
 }
 

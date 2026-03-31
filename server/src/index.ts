@@ -1,4 +1,7 @@
 console.log('--- STARTING PRAMANIK SERVER ---');
+import dns from 'dns';
+dns.setDefaultResultOrder('ipv4first'); // CRITICAL: Fixes Supabase 20-second IPv6 hangs in Node >17
+
 import app from './app.js';
 import { connectDB } from './util/appStartup.util.js';
 import { prisma } from './lib/prisma.js';
@@ -13,16 +16,6 @@ const start = async () => {
   try {
     await connectDB();
     await connectRedis();
-
-    // Run pending migrations on startup (safe in production)
-    Promise.race([
-      prisma.$executeRaw`SELECT 1`,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('DB check timeout')), 60000)),
-    ]).then(() => {
-      logger.info('Database connection verified');
-    }).catch((e) => {
-      logger.error('Database check failed', { error: e });
-    });
 
     app.listen(PORT, () => {
       logger.info(`Pramanik server running on port ${PORT}`);

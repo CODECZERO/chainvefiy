@@ -6,7 +6,7 @@ import geoip from 'geoip-lite';
 import { prisma } from '../../lib/prisma.js';
 import { ApiResponse } from '../../util/apiResponse.util.js';
 import { ApiError } from '../../util/apiError.util.js';
-import { cacheGet, cacheSet, buildCacheKey } from '../../lib/redis.js';
+import { cacheGet, cacheSet, cacheDel, buildCacheKey } from '../../lib/redis.js';
 import { maskIp, countryCodeToName, inferScannerRole } from '../../util/qr.util.js';
 import { server, STACK_ADMIN_SECRET } from '../../services/stellar/smartContract.handler.stellar.js';
 import { Keypair, TransactionBuilder, Networks, Operation, Asset, Memo, BASE_FEE } from '@stellar/stellar-sdk';
@@ -175,16 +175,31 @@ export const browserScan = async (req: Request, res: Response) => {
 
   if (!shortCode) throw new ApiError(400, 'shortCode is required');
 
-  // 1. Find QR code + check expiry
-  const qrCode = await prisma.qRCode.findUnique({ where: { shortCode: String(shortCode) } });
-  if (!qrCode) throw new ApiError(404, 'QR code not found');
+  // 1. Find QR code (Fallback to orderId lookup if shortCode is actually an orderId UUID)
+  const qrCode = await prisma.qRCode.findFirst({
+    where: {
+      OR: [
+        { shortCode: String(shortCode) },
+        { orderId: String(shortCode) }
+      ]
+    }
+  });
+
+  // If order isn't dispatched, QR code doesn't exist yet. Fail silently for telemetry.
+  if (!qrCode) {
+    return res.status(200).json(new ApiResponse(200, { scanId: null }, 'Pre-dispatch scan ignored'));
+  }
+  
   if (qrCode.isExpired || (qrCode.expiresAt && new Date() > qrCode.expiresAt)) {
     if (!qrCode.isExpired) await prisma.qRCode.update({ where: { id: qrCode.id }, data: { isExpired: true } });
     throw new ApiError(410, 'This QR code has expired');
   }
 
   // 2. Resolve IP geolocation
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || '';
+  let ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || '';
+  if (ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+    ip = '49.36.0.0'; // Example IP for testing (Delhi, India)
+  }
   const geo = await resolveGeo(ip);
 
   // 3. Proxy detection
@@ -318,6 +333,8 @@ export const browserScan = async (req: Request, res: Response) => {
     }
   }).catch(err => logger.warn(`[QR] Anomaly detection failed (non-blocking): ${err.message}`));
 
+  await cacheDel(buildCacheKey('journey', { shortCode }));
+
   return res.status(201).json(
     new ApiResponse(201, {
       scanId: scan.id,
@@ -340,7 +357,7 @@ export const updateScanLocation = async (req: Request, res: Response) => {
   const { scanId } = req.params;
   const body = req.body;
 
-  const scan = await prisma.qRScan.findUnique({ where: { id: String(scanId) } });
+  const scan = await prisma.qRScan.findUnique({ where: { id: String(scanId) }, include: { qrCode: true } });
   if (!scan || scan.scanSource !== 'BROWSER') throw new ApiError(404, 'Scan not found');
 
   // Only allow location update within 30 seconds of scan creation
@@ -363,6 +380,10 @@ export const updateScanLocation = async (req: Request, res: Response) => {
       coordinateSource: 'gps',
     },
   });
+
+  if (scan.qrCode) {
+    await cacheDel(buildCacheKey('journey', { shortCode: scan.qrCode.shortCode }));
+  }
 
   return res.status(200).json(
     new ApiResponse(200, { scanId, resolvedLocation }, 'Location updated')

@@ -25,6 +25,7 @@ import qrRoutes from './v2/qr.routes.js';
 import deliveryRoutes from './v2/delivery.routes.js';
 import bountyRoutes from './v2/bounty.routes.js';
 import buyerRoutes from './v2/buyer.routes.js';
+import verificationRoutes from './v2/verification.routes.js';
 
 const router = Router();
 
@@ -55,6 +56,7 @@ router.use('/qr', qrRoutes);
 router.use('/delivery', deliveryRoutes);
 router.use('/bounties', bountyRoutes);
 router.use('/buyer', buyerRoutes);
+router.use('/verification', verificationRoutes);
 
 
 import legacyOrderRoutes from './order.routes.js';

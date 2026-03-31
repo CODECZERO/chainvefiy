@@ -177,14 +177,57 @@ export const addStageUpdate = async (req: any, res: Response) => {
 };
 
 export const voteOnProduct = async (req: any, res: Response) => {
-  const { userId, voteType, reason } = req.body;
+  const { userId, voteType, reason, stellarWallet } = req.body;
   const id = String((req as any).params?.id ?? req.params.id);
 
   const productCheck = await prisma.product.findUnique({ where: { id } });
   if (!productCheck) return res.status(404).json(new ApiResponse(404, null, 'Product not found'));
 
+  // ─── Verification Guard ───
+  // Look up the user by userId or stellarWallet
+  const voter = userId 
+    ? await prisma.user.findUnique({ where: { id: userId }, include: { supplierProfile: true } })
+    : stellarWallet
+      ? await prisma.user.findFirst({ where: { stellarWallet }, include: { supplierProfile: true } })
+      : null;
+
+  if (voter) {
+    if (voter.role === 'SUPPLIER') {
+      // Suppliers can vote on any product — no restriction
+    } else {
+      // Buyers: must have a DELIVERED/COMPLETED order for this specific product
+      const buyerOrder = await prisma.order.findFirst({
+        where: {
+          productId: id,
+          buyerId: voter.id,
+          status: { in: ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED'] }
+        }
+      });
+      if (!buyerOrder) {
+        return res.status(403).json(new ApiResponse(403, null, 'You must have purchased this product to vote.'));
+      }
+    }
+  } else if (stellarWallet) {
+    // Wallet-only user: find their user record, then check orders
+    const walletUser = await prisma.user.findFirst({ where: { stellarWallet } });
+    if (!walletUser) {
+      return res.status(403).json(new ApiResponse(403, null, 'You must have purchased and received this product to vote.'));
+    }
+    const walletOrder = await prisma.order.findFirst({
+      where: { buyerId: walletUser.id, productId: id, status: { in: ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED'] } }
+    });
+    if (!walletOrder) {
+      return res.status(403).json(new ApiResponse(403, null, 'You must have purchased this product to vote.'));
+    }
+  } else {
+    return res.status(401).json(new ApiResponse(401, null, 'User identification required to vote.'));
+  }
+
+  const effectiveUserId = userId || voter?.id;
+  if (!effectiveUserId) return res.status(401).json(new ApiResponse(401, null, 'User not found'));
+
   const existing = await prisma.vote.findUnique({
-    where: { productId_userId: { productId: id, userId } },
+    where: { productId_userId: { productId: id, userId: effectiveUserId } },
   });
   if (existing) return res.status(409).json(new ApiResponse(409, null, 'Already voted'));
 
@@ -195,7 +238,7 @@ export const voteOnProduct = async (req: any, res: Response) => {
 
   if (requiredStake > 0) {
     const userLedger = await prisma.trustTokenLedger.aggregate({
-      where: { userId },
+      where: { userId: effectiveUserId },
       _sum: { amount: true }
     });
     const balance = userLedger._sum.amount || 0;
@@ -205,12 +248,12 @@ export const voteOnProduct = async (req: any, res: Response) => {
 
     // Deduct stake virtually (On-chain sync would happen concurrently via frontend XDR signing)
     await prisma.trustTokenLedger.create({
-      data: { userId, amount: -requiredStake, reason: 'vote_stake', referenceId: id }
+      data: { userId: effectiveUserId, amount: -requiredStake, reason: 'vote_stake', referenceId: id }
     });
   }
 
   const vote = await prisma.vote.create({
-    data: { productId: id, userId, voteType, reason, stakedAmount: requiredStake },
+    data: { productId: id, userId: effectiveUserId, voteType, reason, stakedAmount: requiredStake },
   });
 
   const updateData: any = {};
@@ -270,7 +313,7 @@ export const voteOnProduct = async (req: any, res: Response) => {
   }
 
   await prisma.trustTokenLedger.create({
-    data: { userId, amount: 1, reason: 'vote_cast', referenceId: vote.id },
+    data: { userId: effectiveUserId, amount: 1, reason: 'vote_cast', referenceId: vote.id },
   });
 
   await cacheDel(`product:${id}`);

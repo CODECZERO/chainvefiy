@@ -5,6 +5,7 @@ import {
   buildVoteTx,
   buildRequestReturnTx,
   buildConfirmReturnTx,
+  submitEscrowTx,
   releaseEscrow,
   disputeEscrow,
   refundEscrow,
@@ -22,6 +23,7 @@ const router = Router();
 router.post('/create-escrow/xdr', buildCreateEscrowTx);
 router.post('/submit-proof/xdr', buildSubmitProofTx);
 router.post('/vote/xdr', buildVoteTx);
+router.post('/submit', submitEscrowTx);
 router.post('/request-return/xdr', buildRequestReturnTx);
 router.post('/confirm-return/xdr', buildConfirmReturnTx);
 

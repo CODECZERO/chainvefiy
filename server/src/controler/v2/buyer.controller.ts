@@ -6,17 +6,40 @@ import { getBuyerProfileByUserId, updateBuyerProfileQuery } from '../../dbQuerie
 
 export const getBuyerProfile = AsyncHandler(async (req: any, res: Response) => {
   const userId = req.user?.id;
-  if (!userId) throw new ApiError(401, 'Unauthorized');
+  const stellarWallet = req.query.stellarWallet as string;
 
-  const profile = await getBuyerProfileByUserId(userId);
+  if (!userId && !stellarWallet) {
+    throw new ApiError(400, 'User ID or Stellar Wallet required');
+  }
+
+  let profile;
+  if (userId) {
+    profile = await getBuyerProfileByUserId(userId);
+  } else {
+    // Find user by wallet first
+    const { prisma } = await import('../../lib/prisma.js');
+    const user = await prisma.user.findUnique({ where: { stellarWallet } });
+    if (user) {
+      profile = await getBuyerProfileByUserId(user.id);
+    }
+  }
+
   return res.status(200).json(new ApiResponse(200, profile, 'Buyer profile fetched successfully'));
 });
 
 export const updateBuyerProfile = AsyncHandler(async (req: any, res: Response) => {
-  const userId = req.user?.id;
-  if (!userId) throw new ApiError(401, 'Unauthorized');
+  let userId = req.user?.id;
+  const { stellarWallet, fullName, phoneNumber, address, city, state, pincode, country } = req.body;
 
-  const { fullName, phoneNumber, address, city, state, pincode, country } = req.body;
+  if (!userId && !stellarWallet) {
+    throw new ApiError(400, 'User ID or Stellar Wallet required');
+  }
+
+  if (!userId && stellarWallet) {
+    const { findOrCreateUserByWallet } = await import('../../dbQueries/buyer.Queries.js');
+    const user = await findOrCreateUserByWallet(stellarWallet);
+    userId = user.id;
+  }
 
   const profile = await updateBuyerProfileQuery(userId, {
     fullName,

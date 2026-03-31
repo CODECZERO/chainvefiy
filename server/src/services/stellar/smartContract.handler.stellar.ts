@@ -7,6 +7,7 @@ dotenv.config();
 
 // Initialize server with Soroban testnet
 export const server = new StellarSdk.rpc.Server(process.env.SOROBAN_RPC_URL as string);
+export const horizonServer = new StellarSdk.Horizon.Server("https://horizon-testnet.stellar.org");
 export const STACK_ADMIN_SECRET = (() => {
   const secret = process.env.STACK_ADMIN_SECRET || "";
   if (!secret) {

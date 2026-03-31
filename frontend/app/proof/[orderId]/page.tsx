@@ -74,8 +74,9 @@ export default function ProofPage() {
   const [journey, setJourney] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
-  const viewType = searchParams.get("view") || "default"
+  const viewType = searchParams.get("viewType") || searchParams.get("view") || "default"
 
+  // Effect 1: Fire scan + fetch journey when ?qr= param is present (external QR scan)
   useEffect(() => {
     const shortCode = searchParams.get("qr")
     if (!shortCode || scanFired.current) return
@@ -137,7 +138,25 @@ export default function ProofPage() {
       .then(r => r.json())
       .then(d => { setJourney(d.data); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [])
+  }, [searchParams])
+
+  // Effect 2: Fetch journey by orderId when no ?qr= param (Event Logs / Dashboard links)
+  useEffect(() => {
+    const shortCode = searchParams.get("qr")
+    if (shortCode) return // Already handled by Effect 1
+    if (!orderId) return
+
+    setLoading(true)
+    fetch(`${api}/qr/${orderId}/journey`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.data) {
+          setJourney(d.data)
+        }
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [orderId, searchParams])
 
   const qr = journey?.qrCode
   const scans = journey?.scans || []

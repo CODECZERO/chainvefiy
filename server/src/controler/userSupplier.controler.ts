@@ -2,10 +2,12 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../util/asyncHandler.util.js';
 import { ApiError } from '../util/apiError.util.js';
 import { ApiResponse } from '../util/apiResponse.util.js';
-import { saveUserAndTokens, loginUser } from '../dbQueries/user.Queries.js';
-import { registerSupplier } from '../dbQueries/supplier.Queries.js';
+import { loginUser } from '../dbQueries/user.Queries.js';
 import { createAccount } from '../services/stellar/account.stellar.js';
 import logger from '../util/logger.js';
+import { prisma } from '../lib/prisma.js';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 export interface userSingupData {
   email: string;
@@ -32,47 +34,113 @@ const COOKIE_OPTIONS = {
 // ─── REGISTER ───────────────────────────────────────────────────────
 export const signup = asyncHandler(async (req: Request, res: Response) => {
   const { email, password, name, whatsappNumber, role, location, category } = req.body as userSingupData;
-
+http://localhost:3000/marketplace
   if (!email || !password) throw new ApiError(400, 'Email and password required');
+  if (role === 'SUPPLIER' && (!name || !whatsappNumber)) {
+    throw new ApiError(400, 'Name and WhatsApp number are required for suppliers');
+  }
 
-  // Create Stellar wallet for supplier/buyer
+  // Early exit: Check if email is already taken before wasting 30s creating a Stellar wallet
+  const existingUser = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true }
+  });
+  
+  if (existingUser) {
+    throw new ApiError(409, 'Email already registered');
+  }
+
+  // 1. Hash password early (CPU intensive, do it before the 30s wait)
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  // 2. Create Stellar wallet (Before opening any DB connections)
+  // This takes 15-30 seconds but doesn't touch the DB
   let stellarWallet: string | undefined;
+  let stellarSecret: string | undefined;
   try {
     const account = await createAccount();
     stellarWallet = account?.publicKey;
+    stellarSecret = account?.secret;
   } catch (e) {
     logger.warn('Stellar wallet creation failed, proceeding without wallet', { error: e });
   }
 
-  const { user, accessToken, refreshToken } = await saveUserAndTokens({
-    email,
-    password,
-    stellarWallet,
-    whatsappNumber,
-    role: role || 'BUYER',
-  });
+  // 3. Now save everything with a robust retry for connection terminations
+  let attempts = 0;
+  const maxAttempts = 2;
+  
+  while (attempts < maxAttempts) {
+    try {
+      const user = await prisma.user.create({
+        data: {
+          email: email.toLowerCase(),
+          passwordHash,
+          stellarWallet,
+          managedSecret: stellarSecret,
+          whatsappNumber,
+          role: role || 'BUYER',
+          ...(role === 'SUPPLIER' && name && whatsappNumber ? {
+            supplierProfile: {
+              create: {
+                name,
+                location,
+                category,
+                stellarWallet,
+                managedSecret: stellarSecret,
+                whatsappNumber,
+              }
+            }
+          } : {})
+        },
+        include: { supplierProfile: true }
+      });
 
-  // If registering as supplier, create supplier profile
-  let supplierProfile: any;
-  if (role === 'SUPPLIER' && name && whatsappNumber) {
-    supplierProfile = await registerSupplier({
-      userId: user.id,
-      name,
-      location,
-      category,
-      stellarWallet,
-      whatsappNumber,
-    });
+      const accessToken = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        process.env.ATS as string,
+        { expiresIn: (process.env.ATE as any) || '15m' }
+      );
+
+      const refreshToken = jwt.sign(
+        { id: user.id },
+        process.env.RTS as string,
+        { expiresIn: (process.env.RTE as any) || '7d' }
+      );
+
+      return res
+        .cookie('accessToken', accessToken, COOKIE_OPTIONS)
+        .cookie('refreshToken', refreshToken, COOKIE_OPTIONS)
+        .status(201)
+        .json(new ApiResponse(201, {
+          user: { 
+            id: user.id, 
+            email: user.email, 
+            role: user.role, 
+            isVerified: (user as any).isVerified, 
+            stellarWallet, 
+            supplierProfile: (user as any).supplierProfile 
+          },
+          accessToken,
+        }, 'Registration successful'));
+
+    } catch (error: any) {
+      attempts++;
+      const isConnectionError = error?.message?.includes('Connection terminated') || error?.message?.includes('timeout');
+      
+      if (isConnectionError && attempts < maxAttempts) {
+        logger.warn(`DB connection dropped at attempt ${attempts}, retrying with brand new socket...`);
+        await new Promise(r => setTimeout(r, 500)); 
+        continue;
+      }
+
+      if (error.code === 'P2002') {
+        throw new ApiError(409, 'Email already registered');
+      }
+      throw error;
+    }
   }
-
-  res
-    .cookie('accessToken', accessToken, COOKIE_OPTIONS)
-    .cookie('refreshToken', refreshToken, COOKIE_OPTIONS)
-    .status(201)
-    .json(new ApiResponse(201, {
-      user: { id: user.id, email: user.email, role: user.role, isVerified: (user as any).isVerified, stellarWallet, supplierProfile },
-      accessToken,
-    }, 'Registration successful'));
+  
+  throw new ApiError(500, 'Registration failed unexpectedly');
 });
 
 // ─── LOGIN ──────────────────────────────────────────────────────────
@@ -108,7 +176,6 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
 
 // ─── GET CURRENT USER ───────────────────────────────────────────────
 export const getMe = asyncHandler(async (req: any, res: Response) => {
-  const { prisma } = await import('../lib/prisma.js');
   const user = await prisma.user.findUnique({
     where: { id: req.user?.id },
     include: { supplierProfile: true },
@@ -119,8 +186,6 @@ export const getMe = asyncHandler(async (req: any, res: Response) => {
 
 // ─── GET SUPPLIER ORDERS (Customer Manager) ────────────────────────
 export const getSupplierOrders = asyncHandler(async (req: any, res: Response) => {
-  const { prisma } = await import('../lib/prisma.js');
-  
   // Find the supplier profile for this user
   const supplierProfile = await prisma.supplier.findUnique({
     where: { userId: req.user?.id }
@@ -129,7 +194,6 @@ export const getSupplierOrders = asyncHandler(async (req: any, res: Response) =>
   if (!supplierProfile) throw new ApiError(403, 'Not a supplier');
 
   // Find all orders for products owned by this supplier
-  // Orders are linked to products which are linked to suppliers
   const orders = await prisma.order.findMany({
     where: {
       product: {
@@ -155,5 +219,5 @@ export const getSupplierOrders = asyncHandler(async (req: any, res: Response) =>
     orderBy: { createdAt: 'desc' }
   });
 
-  res.json(new ApiResponse(200, orders, 'Supplier orders fetched'));
+  return res.json(new ApiResponse(200, orders, 'Supplier orders fetched'));
 });

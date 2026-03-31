@@ -1,13 +1,26 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { Header } from "@/components/header"
-import { CheckCircle2, Package, MapPin, ExternalLink, ShieldCheck, Clock, ArrowLeft } from "lucide-react"
+import { CheckCircle2, Package, MapPin, ExternalLink, ShieldCheck, Clock, ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useSelector } from "react-redux"
 import type { RootState } from "@/lib/redux/store"
+import dynamic from 'next/dynamic'
+import { JourneyTimelineRow } from '@/components/journey-timeline-row'
+import { detectDeviceType, detectOS, detectBrowser } from '@/lib/qr-utils'
+
+const JourneyMap = dynamic(() => import('@/components/journey-map'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-80 bg-[#0C0F17] rounded-[2rem] flex flex-col items-center justify-center border border-white/[0.04]">
+      <Loader2 className="w-8 h-8 animate-spin text-slate-500 mb-4" />
+      <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Initializing Map...</span>
+    </div>
+  ),
+})
 
 export default function OrderJourneyPage() {
   const { id } = useParams()
@@ -18,6 +31,8 @@ export default function OrderJourneyPage() {
   const [loading, setLoading] = useState(true)
   const { user } = useSelector((s: RootState) => s.userAuth)
   const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+
+  const scanFired = useRef(false)
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -34,6 +49,61 @@ export default function OrderJourneyPage() {
       }
     }
     fetchOrder()
+
+    // Fire telemetry event on load (non-blocking, non-critical)
+    if (scanFired.current) return
+    scanFired.current = true
+
+    ;(async () => {
+      try {
+        const scanRes = await fetch(`${api}/qr/scan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shortCode: id,
+            clientTimestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            deviceType: detectDeviceType(navigator.userAgent),
+            os: detectOS(navigator.userAgent),
+            browser: detectBrowser(navigator.userAgent),
+            screenResolution: `${screen.width}x${screen.height}`,
+            language: navigator.language,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            connectionType: (navigator as any).connection?.effectiveType || 'unknown',
+            referrer: document.referrer || 'direct',
+            isOnline: navigator.onLine,
+            locationPermission: 'unavailable',
+            walletConnected: false,
+            viewType: 'public_journey',
+          }),
+          keepalive: true,
+        })
+        if (!scanRes.ok) return
+        const result = await scanRes.json()
+        const scanId = result.data?.scanId
+        if (!scanId) return
+
+        if ('geolocation' in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            pos => {
+              fetch(`${api}/qr/scan/${scanId}/location`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  gpsLat: pos.coords.latitude,
+                  gpsLng: pos.coords.longitude,
+                  gpsAccuracy: pos.coords.accuracy,
+                  gpsAltitude: pos.coords.altitude,
+                }),
+                keepalive: true,
+              }).catch(() => {})
+            },
+            () => {},
+            { timeout: 8000, maximumAge: 60000 }
+          )
+        }
+      } catch { /* telemetry is non-critical */ }
+    })()
   }, [id, api])
 
   // Verification Logic
@@ -41,7 +111,8 @@ export default function OrderJourneyPage() {
   const buyerWallet = order?.buyer?.stellarWallet
   const supplierWallet = order?.product?.supplier?.stellarWallet
   
-  const isAuthorized = connectedWallet && (connectedWallet === buyerWallet || connectedWallet === supplierWallet)
+  const hasValidToken = token && (token === order?.qrBuyerToken || token === order?.qrSupplierToken)
+  const isAuthorized = hasValidToken || (connectedWallet && (connectedWallet === buyerWallet || connectedWallet === supplierWallet))
 
   if (loading) return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -106,7 +177,34 @@ export default function OrderJourneyPage() {
   }
 
   const product = order.product
-  const stageUpdates = product?.stageUpdates || []
+  const stageScans = (product?.stageUpdates || []).map((s: any, idx: number) => ({
+    scanNumber: idx,
+    serverTimestamp: s.createdAt,
+    scanSource: 'SYSTEM',
+    resolvedLat: s.gpsLat,
+    resolvedLng: s.gpsLng,
+    resolvedLocation: s.gpsAddress || s.stageName,
+    scannerRole: 'supplier',
+    machineEventType: s.stageName,
+    ipCountryName: 'Origin'
+  }))
+
+  const realScans = order?.qrCode?.scans || []
+  let displayScans = [...stageScans, ...realScans]
+
+  if (displayScans.length === 0 && order) {
+    displayScans = [{
+      scanNumber: 0,
+      serverTimestamp: order.createdAt,
+      scanSource: 'SYSTEM',
+      resolvedLocation: product?.supplier?.location || 'Supplier Facility',
+      resolvedLat: product?.stageUpdates?.[0]?.gpsLat || null,
+      resolvedLng: product?.stageUpdates?.[0]?.gpsLng || null,
+      scannerRole: 'supplier',
+      machineEventType: 'Package Prepared',
+      ipCountryName: 'Origin'
+    }]
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white selection:bg-primary/30">
@@ -148,71 +246,45 @@ export default function OrderJourneyPage() {
           </div>
         </div>
 
-        {/* Timeline */}
-        <div className="space-y-12 pl-4">
-          <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
-            <Clock className="w-5 h-5 text-primary" /> Tracking History
-          </h2>
-
-          <div className="relative border-l-2 border-white/5 ml-4 space-y-12">
-            {/* Purchase Stage (End of journey for now) */}
-            <div className="relative pl-10">
-              <div className="absolute -left-[11px] top-0 w-5 h-5 bg-emerald-500 border-4 border-slate-950 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
-              <div className="space-y-2">
-                <div className="text-emerald-400 font-bold text-lg">Purchase Finalized</div>
-                <div className="text-sm text-slate-400">{new Date(order.createdAt).toLocaleString()}</div>
-                <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-4 text-sm text-slate-300">
-                  Payment secured in Stellar Escrow. Package prepared for delivery to:
-                  <div className="mt-2 font-medium text-white">{order.shippingAddress}, {order.shippingCity}</div>
-                </div>
-              </div>
+        {/* Timeline & Map Grid */}
+        <div className="grid md:grid-cols-2 gap-8 mb-8 mt-12">
+          <div className="premium-card rounded-[2rem] p-6 lg:p-8 flex flex-col relative overflow-hidden h-[400px]">
+            <div className="flex justify-between items-center mb-6 z-10">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-amber-500" /> Verification Nodes
+              </h3>
             </div>
-
-            {/* Product Stages */}
-            {stageUpdates.map((s: any, i: number) => (
-              <div key={s.id} className="relative pl-10">
-                <div className="absolute -left-[11px] top-0 w-5 h-5 bg-primary border-4 border-slate-950 rounded-full" />
-                <div className="space-y-3">
-                  <div className="text-white font-bold text-lg">{s.stageName}</div>
-                  <div className="text-sm text-slate-400">{new Date(s.createdAt).toLocaleString()}</div>
-                  {s.note && <p className="text-slate-300 text-sm leading-relaxed">{s.note}</p>}
-                  
-                  {s.photoUrl && (
-                    <div className="rounded-2xl overflow-hidden border border-white/10 max-w-sm">
-                      <img src={s.photoUrl} alt={s.stageName} className="w-full h-auto object-cover" />
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-4 text-xs">
-                    {s.gpsAddress && (
-                      <div className="flex items-center gap-1.5 text-slate-400">
-                        <MapPin className="w-3.5 h-3.5 text-primary" /> {s.gpsAddress}
-                      </div>
-                    )}
-                    {s.stellarTxId && (
-                      <a 
-                        href={`https://stellar.expert/explorer/testnet/tx/${s.stellarTxId}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-primary hover:underline"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" /> View on Blockchain
-                      </a>
-                    )}
+            <div className="flex-1 rounded-2xl overflow-hidden border border-white/[0.06] relative z-0">
+              {displayScans.some((s: any) => typeof s.resolvedLat === 'number' && typeof s.resolvedLng === 'number') ? (
+                 <JourneyMap scans={displayScans} />
+              ) : displayScans.length > 0 ? (
+                 <JourneyMap scans={[{ ...displayScans[0], resolvedLat: 28.6139, resolvedLng: 77.2090, resolvedLocation: 'Supplier Origin (Estimated)' }, ...displayScans.slice(1)]} />
+              ) : (
+                 <div className="w-full h-full bg-[#0C0F17] flex flex-col items-center justify-center space-y-4">
+                    <span className="text-sm font-bold text-slate-500 uppercase tracking-widest text-center px-4">
+                      Awaiting Geographic Scan
+                      <p className="text-xs text-slate-600 mt-2 font-normal normal-case">GPS coordinates will appear here once the package is registered at a transit hub.</p>
+                    </span>
+                 </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="premium-card rounded-[2rem] p-6 lg:p-8 flex flex-col h-[400px] border border-white/[0.04]">
+             <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+               <Clock className="w-5 h-5 text-blue-500" /> Event Log
+             </h3>
+             <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar space-y-0 relative">
+                {displayScans.length > 0 ? (
+                  displayScans.map((scan: any, i: number) => (
+                    <JourneyTimelineRow key={i} scan={scan} isLast={i === displayScans.length - 1} />
+                  ))
+                ) : (
+                  <div className="text-center py-20">
+                    <p className="text-slate-500 text-sm font-semibold">Timeline will populate once supplier dispatches.</p>
                   </div>
-                </div>
-              </div>
-            ))}
-
-            {/* Origin Stage */}
-            <div className="relative pl-10">
-              <div className="absolute -left-[11px] top-0 w-5 h-5 bg-slate-800 border-4 border-slate-950 rounded-full" />
-              <div className="space-y-1">
-                <div className="text-slate-400 font-bold text-lg">Product Registered</div>
-                <div className="text-sm text-slate-500">{new Date(product.createdAt).toLocaleString()}</div>
-                <div className="text-xs text-slate-600">Initial verification by {product.supplier?.name}</div>
-              </div>
-            </div>
+                )}
+             </div>
           </div>
         </div>
 

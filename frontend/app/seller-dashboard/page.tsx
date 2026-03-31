@@ -68,11 +68,14 @@ export default function SellerDashboard() {
     setLoading(true)
     try {
       if (sid) {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+        const headers: Record<string, string> = { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+        const opts: RequestInit = { credentials: "include", headers }
         const [prodRes, ordRes, anRes, bntRes] = await Promise.all([
-          fetch(`${api}/suppliers/${sid}/products`, { credentials: "include" }),
-          fetch(`${api}/donations/supplier/${sid}`, { credentials: "include" }),
-          fetch(`${api}/suppliers/${sid}/analytics`, { credentials: "include" }),
-          fetch(`${api}/bounties/supplier/${sid}`, { credentials: "include" })
+          fetch(`${api}/suppliers/${sid}/products`, opts),
+          fetch(`${api}/donations/supplier/${sid}`, opts),
+          fetch(`${api}/suppliers/${sid}/analytics`, opts),
+          fetch(`${api}/bounties/supplier/${sid}`, opts)
         ])
         const prods = (await prodRes.json()).data || []
         const ords  = (await ordRes.json()).data  || []
@@ -82,7 +85,11 @@ export default function SellerDashboard() {
         setOrders(ords)
         setBounties(bnts)
         const completed = ords.filter((o: any) => o.status === "COMPLETED")
-        const totalUsdc = completed.reduce((s: number, o: any) => s + Number(o.priceUsdc || 0), 0)
+        const shippedHalf = ords.filter((o: any) => o.status === "SHIPPED" || o.status === "DELIVERED")
+        
+        const completedUsdc = completed.reduce((s: number, o: any) => s + Number(o.priceUsdc || 0), 0)
+        const shippedHalfUsdc = shippedHalf.reduce((s: number, o: any) => s + (Number(o.priceUsdc || 0) / 2), 0)
+        const totalUsdc = completedUsdc + shippedHalfUsdc
         setStats({
           active:       prods.filter((p: any) => p.status === "VERIFIED").length,
           pending:      prods.filter((p: any) => p.status === "PENDING_VERIFICATION").length,
@@ -95,6 +102,21 @@ export default function SellerDashboard() {
       }
     } catch {}
     setLoading(false)
+  }
+
+  const handleDispatch = async (orderId: string) => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+      const res = await fetch(`${api}/orders/${orderId}/dispatch`, {
+        method: "PATCH",
+        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+      });
+      if (res.ok) {
+        loadAll();
+      }
+    } catch (e) {
+      console.error("Dispatch failed", e);
+    }
   }
 
   const copyWallet = () => {
@@ -147,30 +169,33 @@ export default function SellerDashboard() {
         {/* ── Sidebar ── */}
         <aside className="hidden lg:flex flex-col w-60 shrink-0 gap-2">
           {/* Supplier card */}
-          <div className="bg-card border border-border rounded-2xl p-4 mb-2">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-xl font-bold shrink-0 text-primary-foreground">
+          <div className="premium-card bg-[#0A0D14] border border-white/[0.06] rounded-3xl p-5 mb-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl pointer-events-none" />
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2775CA] to-[#1D4ED8] flex items-center justify-center text-xl font-bold shrink-0 text-white shadow-lg border border-white/10">
                 {String(user?.supplierProfile?.name || user?.email || "S")[0].toUpperCase()}
               </div>
               <div className="min-w-0">
-                <div className="font-semibold truncate">{String(user?.supplierProfile?.name || "My Shop")}</div>
-                <div className="flex items-center gap-1 mt-0.5">
+                <div className="font-bold text-white text-lg truncate">{String(user?.supplierProfile?.name || "My Shop")}</div>
+                <div className="flex items-center gap-1.5 mt-0.5">
                   {user?.supplierProfile?.isVerified && (
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
                   )}
-                  <span className="text-muted-foreground text-xs truncate">{String(user?.email || "")}</span>
+                  <span className="text-slate-400 text-xs font-medium truncate tracking-wide">{String(user?.email || "")}</span>
                 </div>
               </div>
             </div>
             {/* Trust Score bar */}
-            <div className="mt-3">
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-muted-foreground">Trust Score</span>
-                <span className="font-semibold text-primary">{user?.supplierProfile?.trustScore ?? 0}/100</span>
+            <div className="mt-5 relative z-10">
+              <div className="flex justify-between text-xs mb-1.5 uppercase tracking-widest font-bold">
+                <span className="text-slate-500">Trust Score</span>
+                <span className="text-blue-400">{user?.supplierProfile?.trustScore ?? 0}/100</span>
               </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: `${user?.supplierProfile?.trustScore ?? 0}%` }} />
+              <div className="h-2 bg-[#0C0F17] rounded-full overflow-hidden border border-white/[0.04] shadow-inner">
+                <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full transition-all relative overflow-hidden"
+                  style={{ width: `${user?.supplierProfile?.trustScore ?? 0}%` }}>
+                  <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                </div>
               </div>
             </div>
           </div>
@@ -250,21 +275,24 @@ export default function SellerDashboard() {
               </div>
 
               {/* Stat cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: "Active Listings", value: stats.active,     color: "text-emerald-400", bg: "from-emerald-500/5", icon: Package },
-                  { label: "Pending Review",  value: stats.pending,    color: "text-amber-400",   bg: "from-amber-500/5",  icon: Clock },
-                  { label: "Total Sales",     value: stats.totalSales, color: "text-blue-400",    bg: "from-blue-500/5",   icon: ShoppingCart },
-                  { label: "USDC Earned",     value: stats.usdcBalance, color: "text-[#2775CA]",  bg: "from-[#2775CA]/5",  icon: Wallet },
+                  { label: "Active Listings", value: stats.active,     color: "text-emerald-400", bg: "from-emerald-500/10", icon: Package },
+                  { label: "Pending Review",  value: stats.pending,    color: "text-amber-400",   bg: "from-amber-500/10",  icon: Clock },
+                  { label: "Total Sales",     value: stats.totalSales, color: "text-blue-400",    bg: "from-blue-500/10",   icon: ShoppingCart },
+                  { label: "USDC Earned",     value: stats.usdcBalance, color: "text-[#2775CA]",  bg: "from-[#2775CA]/10",  icon: Wallet },
                 ].map(s => (
-                  <div key={s.label} className={`bg-gradient-to-br ${s.bg} to-[#111827] border border-[#1F2D40] rounded-2xl p-4`}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <s.icon className={`w-4 h-4 ${s.color}`} />
-                      <span className="text-[#6B7280] text-xs">{s.label}</span>
+                  <div key={s.label} className="premium-card bg-[#0A0D14] border border-white/[0.06] rounded-3xl p-5 relative overflow-hidden group shadow-lg">
+                    <div className={`absolute inset-0 bg-gradient-to-br ${s.bg} to-transparent opacity-20 group-hover:opacity-40 transition-opacity duration-500 pointer-events-none`} />
+                    <div className="flex items-center gap-2 mb-4 relative z-10">
+                      <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center shrink-0">
+                        <s.icon className={`w-4 h-4 ${s.color}`} />
+                      </div>
+                      <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{s.label}</span>
                     </div>
                     {loading
-                      ? <div className="h-8 bg-[#1C2333] rounded-lg animate-pulse" />
-                      : <div className={`text-2xl font-bold font-mono ${s.color}`}>{String(s.value)}</div>
+                      ? <div className="h-8 bg-[#0C0F17] rounded-xl animate-pulse" />
+                      : <div className={`text-3xl font-black font-mono tracking-tight ${s.color} relative z-10 drop-shadow-[0_0_12px_currentColor]`}>{String(s.value)}</div>
                     }
                   </div>
                 ))}
@@ -420,40 +448,40 @@ export default function SellerDashboard() {
                     const total = p.voteReal + p.voteFake
                     const pct = total > 0 ? (p.voteReal / total) * 100 : 0
                     return (
-                      <div key={p.id} className="bg-[#111827] border border-[#1F2D40] hover:border-[#E8772E]/30 rounded-2xl p-4 transition-all">
-                        <div className="flex items-start gap-4">
-                          <div className="w-14 h-14 bg-[#1C2333] rounded-xl flex items-center justify-center text-2xl shrink-0 overflow-hidden relative">
+                      <div key={p.id} className="premium-card bg-[#0A0D14] border border-white/[0.06] rounded-[2rem] p-6 relative overflow-hidden group shadow-lg transition-transform hover:-translate-y-1">
+                        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+                        <div className="flex items-start gap-5 relative z-10">
+                          <div className="w-16 h-16 bg-[#0C0F17] rounded-2xl shadow-inner border border-white/[0.08] flex items-center justify-center shrink-0 overflow-hidden relative">
                             {p.proofMediaUrls?.[0]
-                              ? <Image src={getIPFSUrl(p.proofMediaUrls[0])} alt="" fill className="object-cover" />
-                              : <Package className="w-6 h-6 text-slate-400" />}
+                              ? <Image src={getIPFSUrl(p.proofMediaUrls[0])} alt="" fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
+                              : <Package className="w-7 h-7 text-slate-500" />}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0 pt-0.5">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                               <div>
-                                <div className="font-semibold truncate">{String(p.title || "Product")}</div>
-                                <div className="text-[#9CA3AF] text-xs mt-0.5">{String(p.category || "General")}</div>
+                                <div className="font-black text-lg text-white truncate">{String(p.title || "Product")}</div>
+                                <div className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-0.5">{String(p.category || "General")}</div>
                               </div>
-                              <span className={`shrink-0 flex items-center gap-1 border rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}>
-                                <div className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {String(s.label)}
+                              <span className={`shrink-0 flex items-center gap-1.5 border rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest shadow-lg ${s.cls}`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${s.dot} shadow-[0_0_8px_currentColor]`} /> {String(s.label)}
                               </span>
                             </div>
-                            {/* Vote bar */}
-                            <div className="mt-2">
-                              <div className="flex items-center justify-between text-xs text-[#6B7280] mb-1">
+                            <div className="mt-3">
+                              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">
                                 <span>{String(p.voteReal)} real · {String(p.voteFake)} fake</span>
-                                <span>{Math.round(pct)}% trust</span>
+                                <span className={pct >= 50 ? "text-emerald-400" : "text-amber-400"}>{Math.round(pct)}% Validated</span>
                               </div>
-                              <div className="h-1 bg-[#1C2333] rounded-full overflow-hidden">
-                                <div className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full" style={{ width: `${pct}%` }} />
+                              <div className="h-1.5 bg-[#0C0F17] rounded-full overflow-hidden border border-white/[0.04] shadow-inner">
+                                <div className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)] transition-all" style={{ width: `${pct}%` }} />
                               </div>
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-xl font-bold">₹{Number(p.priceInr || 0).toLocaleString()}</div>
-                            <div className="text-[#6B7280] text-xs">{convertInrToUsdc(Number(p.priceInr) || 0, 83.33).toFixed(3)} USDC</div>
+                          <div className="text-right shrink-0 pt-0.5 hidden sm:block">
+                            <div className="text-xl font-black text-white">₹{Number(p.priceInr || 0).toLocaleString()}</div>
+                            <div className="text-[#2775CA] font-mono text-[10px] font-bold uppercase tracking-widest leading-relaxed">{convertInrToUsdc(Number(p.priceInr) || 0, 83.33).toFixed(3)} USDC</div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#1F2D40]">
+                        <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-white/[0.06] relative z-10">
                           <Link href={`/product/${p.id}`} className="flex-1">
                             <button className="w-full text-xs text-[#9CA3AF] hover:text-white border border-[#1F2D40] hover:border-[#E8772E]/30 rounded-lg py-1.5 transition-all">View Listing</button>
                           </Link>
@@ -497,31 +525,108 @@ export default function SellerDashboard() {
                   {orders.map((o: any) => {
                     const s = STATUS[o.status] || STATUS.PAID
                     return (
-                      <div key={o.id} className="bg-[#111827] border border-[#1F2D40] rounded-2xl p-4">
-                        <div className="flex items-center gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium">{String(o.product?.title || "Product")}</span>
-                              <span className={`flex items-center gap-1 border rounded-full px-2 py-0.5 text-xs font-semibold ${s.cls}`}>
-                                <div className={`w-1.5 h-1.5 rounded-full ${s.dot}`} /> {String(s.label)}
-                              </span>
+                      <div key={o.id} className="premium-card bg-[#0A0D14] border border-white/[0.06] rounded-[2rem] p-6 lg:p-8 overflow-hidden relative group shadow-xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+                        <div className="flex flex-col md:flex-row gap-8 relative z-10">
+                          {/* Left: Product Info & Image */}
+                          <div className="w-full md:w-1/3 space-y-5">
+                            <div className="flex items-start gap-4">
+                              <div className="w-20 h-20 bg-[#0C0F17] rounded-3xl shadow-inner border border-white/[0.08] flex items-center justify-center shrink-0 overflow-hidden relative">
+                                {o.product?.proofMediaUrls?.[0] ? (
+                                  <Image src={getIPFSUrl(o.product.proofMediaUrls[0])} alt="" fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
+                                ) : (
+                                  <Package className="w-8 h-8 text-slate-500" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1 pt-1">
+                                <div className="font-black text-xl text-white truncate">{String(o.product?.title || "Product")}</div>
+                                <div className="text-slate-400 text-xs font-mono tracking-widest uppercase mt-1">Order #{String(o.id || "").slice(0, 8)}</div>
+                              </div>
                             </div>
-                            <div className="text-[#6B7280] text-xs mt-1 font-mono">Order #{String(o.id || "").slice(0, 8)}</div>
+                            <div className="flex items-center justify-between bg-[#0C0F17] border border-white/[0.04] rounded-2xl p-4 shadow-inner">
+                               <div>
+                                  <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">Stellar Escrow</div>
+                                  <div className="font-mono font-black text-xl text-[#2775CA] drop-shadow-[0_0_12px_rgba(39,117,202,0.4)]">{Number(o.priceUsdc).toFixed(4)} <span className="text-xs">USDC</span></div>
+                               </div>
+                               <span className={`flex items-center gap-2 border rounded-full px-4 py-1.5 text-[10px] font-black uppercase tracking-widest shadow-lg ${s.cls}`}>
+                                 <div className={`w-2 h-2 rounded-full ${s.dot} shadow-[0_0_8px_currentColor]`} /> {String(s.label)}
+                               </span>
+                            </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <div className="font-mono font-bold text-[#2775CA]">{Number(o.priceUsdc).toFixed(4)} USDC</div>
-                            <div className="text-[#6B7280] text-xs">≈ ₹{Number(o.priceInr).toFixed(0)}</div>
+
+                          {/* Divider */}
+                          <div className="hidden md:block w-px bg-white/[0.06] min-h-full mx-2" />
+                          <div className="md:hidden h-px w-full bg-white/[0.06]" />
+
+                          {/* Right: Shipping Address */}
+                          <div className="w-full md:w-2/3 flex flex-col justify-between h-full space-y-6 md:space-y-0">
+                            <div>
+                               <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                 <MapPin className="w-4 h-4 text-emerald-400" /> Dispatch Delivery Details
+                               </h4>
+                               <div className="bg-gradient-to-br from-[#0C0F17] to-transparent border border-white/[0.04] rounded-3xl p-5 shadow-inner">
+                                  {o.shippingFullName ? (
+                                    <div className="space-y-1.5 text-sm text-slate-300">
+                                      <div className="font-black text-white text-lg mb-3 tracking-tight">{o.shippingFullName}</div>
+                                      <div className="flex items-center gap-3 text-slate-400 font-medium">
+                                        <div className="w-8 h-8 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center shrink-0"><span className="text-base text-blue-400">📞</span></div>
+                                        {o.shippingPhone}
+                                      </div>
+                                      <div className="flex items-start gap-3 text-slate-400 mt-3 font-medium">
+                                        <div className="w-8 h-8 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center shrink-0 mt-0.5"><span className="text-base text-amber-400">📍</span></div>
+                                        <div className="leading-relaxed flex-1">
+                                          <div className="text-white mb-0.5">{o.shippingAddress}</div>
+                                          <div>{o.shippingCity}, {o.shippingState} {o.shippingPincode}</div>
+                                          <div className="uppercase tracking-widest text-[10px] text-slate-500 mt-1 font-bold">{o.shippingCountry}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="text-center py-6 text-slate-500 flex flex-col items-center gap-2">
+                                      <AlertTriangle className="w-6 h-6 text-amber-500/50" />
+                                      <p className="font-bold text-sm tracking-wide">Awaiting secure delivery details from buyer</p>
+                                    </div>
+                                  )}
+                               </div>
+                            </div>
+                            
+                            {/* Action / Escrow */}
+                            <div className="mt-auto pt-6 flex flex-wrap md:flex-nowrap items-center justify-between gap-4">
+                              {o.escrowTxId ? (
+                                <a href={`https://stellar.expert/explorer/testnet/tx/${o.escrowTxId}`} target="_blank" rel="noopener noreferrer"
+                                  className="text-amber-500/80 hover:text-amber-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors bg-amber-500/10 hover:bg-amber-500/20 px-4 py-3 rounded-2xl border border-amber-500/20 shadow-lg shrink-0">
+                                  ⛓️ Escrow Locked TX <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              ) : <div />}
+                              
+                              <div className="flex gap-3 w-full md:w-auto">
+                                <Button className="w-full md:w-auto bg-white/5 border border-white/10 text-white hover:bg-white/10 font-bold tracking-widest uppercase text-[10px] rounded-2xl h-12 px-6 shadow-none transition-all hover:scale-105 active:scale-95 shrink-0">
+                                  Print Dispatch Label
+                                </Button>
+                                {o.status === "PAID" && (
+                                  <Button 
+                                    onClick={() => handleDispatch(o.id)}
+                                    className="w-full md:w-auto bg-[#2775CA] text-white hover:bg-[#1D4ED8] font-black tracking-widest uppercase text-[10px] rounded-2xl h-12 px-6 shadow-[0_0_20px_rgba(39,117,202,0.4)] transition-all hover:scale-105 active:scale-95 shrink-0">
+                                    Mark as Dispatched
+                                  </Button>
+                                )}
+                                {(o.status === "SHIPPED" || o.status === "DELIVERED" || o.status === "COMPLETED") && (
+                                  <>
+                                    <Button disabled className="w-full md:w-auto bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black tracking-widest uppercase text-[10px] rounded-2xl h-12 px-6 opacity-100 shrink-0">
+                                      Dispatched <CheckCircle2 className="w-4 h-4 ml-2" />
+                                    </Button>
+                                    <Button onClick={() => window.open(`/proof/${o.id}?viewType=origin`, "_blank")} className="w-full md:w-auto bg-blue-500/10 text-blue-400 border border-blue-500/20 font-black tracking-widest uppercase text-[10px] hover:bg-blue-500/20 rounded-2xl h-12 px-6 shrink-0 transition-all">
+                                      Event Logs
+                                    </Button>
+                                    <Button onClick={() => window.open(`/order/${o.id}/journey`, "_blank")} className="w-full md:w-auto bg-purple-500/10 text-purple-400 border border-purple-500/20 font-black tracking-widest uppercase text-[10px] hover:bg-purple-500/20 rounded-2xl h-12 px-6 shrink-0 transition-all">
+                                      Journey Map
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        {o.escrowTxId && (
-                          <div className="mt-3 pt-3 border-t border-[#1F2D40] flex items-center gap-2">
-                            <span className="text-[#6B7280] text-xs">Stellar escrow:</span>
-                            <a href={`https://stellar.expert/explorer/testnet/tx/${o.escrowTxId}`} target="_blank" rel="noopener noreferrer"
-                              className="text-orange-400 hover:text-orange-300 text-xs flex items-center gap-1 transition-colors">
-                              {o.escrowTxId.slice(0, 12)}... <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </div>
-                        )}
                       </div>
                     )
                   })}
@@ -534,36 +639,37 @@ export default function SellerDashboard() {
           {active === "earnings" && (
             <div className="space-y-4">
               <h2 className="text-xl font-bold">Earnings</h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-gradient-to-br from-[#0D1A2D] to-[#111827] border border-[#2775CA]/20 rounded-2xl p-6">
-                  <div className="text-xs font-semibold uppercase tracking-widest text-[#6B7280] mb-2">Total USDC Earned</div>
-                  <div className="text-4xl font-bold font-mono text-[#2775CA]">{String(stats.usdcBalance)}</div>
-                  <div className="text-[#9CA3AF] text-sm mt-1">≈ ₹{String(stats.usdcInr)}</div>
-                  <div className="flex gap-2 mt-4">
-                    <Button className="flex-1 bg-[#2775CA]/10 text-[#2775CA] border border-[#2775CA]/20 hover:bg-[#2775CA]/20 rounded-xl h-9 text-sm">Withdraw to UPI</Button>
-                    <Button className="flex-1 bg-[#1C2333] border border-[#1F2D40] hover:border-[#E8772E]/30 rounded-xl h-9 text-sm">To Wallet</Button>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="premium-card bg-[#0A0D14] border border-white/[0.06] rounded-[2rem] p-8 relative overflow-hidden group shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#2775CA]/10 to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  <div className="text-[10px] font-black uppercase tracking-widest text-[#2775CA] mb-2 relative z-10">Total USDC Earned</div>
+                  <div className="text-5xl font-black font-mono text-white drop-shadow-[0_0_12px_rgba(39,117,202,0.5)] relative z-10">{String(stats.usdcBalance)}</div>
+                  <div className="text-slate-400 text-sm font-bold mt-2 relative z-10">≈ ₹{String(stats.usdcInr)}</div>
+                  <div className="flex gap-3 mt-8 relative z-10">
+                    <Button className="flex-1 bg-[#2775CA] hover:bg-[#1D4ED8] text-white font-black uppercase tracking-widest text-xs rounded-xl h-11 shadow-[0_0_15px_rgba(39,117,202,0.4)] transition-all hover:scale-105 active:scale-95">Withdraw to UPI</Button>
+                    <Button className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-xs rounded-xl h-11 transition-all">To Wallet</Button>
                   </div>
                 </div>
-                <div className="bg-[#111827] border border-[#1F2D40] rounded-2xl p-5 space-y-3">
-                  <div className="text-xs font-semibold uppercase tracking-widest text-[#6B7280]">Stellar Wallet</div>
+                <div className="premium-card bg-[#0A0D14] border border-white/[0.06] rounded-[2rem] p-8 space-y-4 shadow-lg relative overflow-hidden">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 relative z-10">Stellar Wallet</div>
                   {user?.stellarWallet ? (
                     <>
-                      <div className="font-mono text-sm text-[#9CA3AF] break-all bg-[#0D1321] rounded-xl p-3">
+                      <div className="font-mono text-sm text-blue-300 break-all bg-blue-900/10 border border-blue-500/20 rounded-xl p-4 shadow-inner relative z-10">
                         {String(user.stellarWallet || "")}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-3 relative z-10">
                         <button onClick={copyWallet}
-                          className="flex-1 flex items-center justify-center gap-1.5 text-xs text-[#9CA3AF] hover:text-white border border-[#1F2D40] rounded-lg py-1.5 transition-all">
-                          <Copy className="w-3 h-3" /> {String(copied ? "Copied!" : "Copy")}
+                          className="flex-1 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/[0.08] rounded-xl py-3 transition-all">
+                          <Copy className="w-3.5 h-3.5" /> {String(copied ? "Copied!" : "Copy Address")}
                         </button>
                         <a href={`https://stellar.expert/explorer/testnet/account/${user.stellarWallet}`} target="_blank" rel="noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-1.5 text-xs text-orange-400 hover:text-orange-300 border border-[#1F2D40] rounded-lg py-1.5 transition-all">
-                          <ExternalLink className="w-3 h-3" /> Explorer
+                          className="flex-1 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-400 hover:text-amber-300 bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20 rounded-xl py-3 transition-all">
+                          <ExternalLink className="w-3.5 h-3.5" /> Block Explorer
                         </a>
                       </div>
                     </>
                   ) : (
-                    <p className="text-[#9CA3AF] text-sm">Connect your Stellar wallet to receive USDC payments.</p>
+                    <p className="text-slate-400 text-sm font-medium relative z-10">Connect your Stellar wallet to receive USDC payments.</p>
                   )}
                 </div>
               </div>

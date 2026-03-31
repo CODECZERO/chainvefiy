@@ -19,11 +19,9 @@ const allowedOrigins = process.env.FRONTEND_URL
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow local development
-      if (!origin || origin.includes('localhost:3000') || origin.includes('127.0.0.1:3000')) {
-        return callback(null, true);
-      }
-      if (allowedOrigins.includes(origin) || (process.env.NODE_ENV === 'development' && origin.startsWith('http://localhost:'))) {
+      // Allow local development and specified origins
+      const isLocal = !origin || origin.includes('localhost:3000') || origin.includes('127.0.0.1:3000') || origin.startsWith('http://localhost:');
+      if (isLocal || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
       callback(new Error('Not allowed by CORS'));
