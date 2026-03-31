@@ -19,7 +19,7 @@ export class ProductRegistryService {
     /**
      * Initialize the Product Registry contract.
      */
-    async initialize(adminKey: string) {
+    async initialize(adminKey: string): Promise<any> {
         if (!PRODUCT_REGISTRY_CONTRACT_ID) throw new Error('PRODUCT_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(PRODUCT_REGISTRY_CONTRACT_ID);
@@ -41,7 +41,7 @@ export class ProductRegistryService {
     /**
      * Set the badge contract address.
      */
-    async setBadgeContract(adminKey: string, badgeContractAddress: string) {
+    async setBadgeContract(adminKey: string, badgeContractAddress: string): Promise<any> {
         if (!PRODUCT_REGISTRY_CONTRACT_ID) throw new Error('PRODUCT_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(PRODUCT_REGISTRY_CONTRACT_ID);
@@ -50,7 +50,7 @@ export class ProductRegistryService {
 
         // Build and sign transaction with globally synchronized helper
         const tx = await adminSequenceManager.buildTransaction([
-            contract.call('set_badge_contract', 
+            contract.call('set_badge_contract',
                 new Address(adminKeypair.publicKey()).toScVal(),
                 new Address(badgeContractAddress).toScVal()
             )
@@ -66,7 +66,7 @@ export class ProductRegistryService {
     /**
      * Set the token contract address.
      */
-    async setTokenContract(adminKey: string, tokenContractAddress: string) {
+    async setTokenContract(adminKey: string, tokenContractAddress: string): Promise<any> {
         if (!PRODUCT_REGISTRY_CONTRACT_ID) throw new Error('PRODUCT_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(PRODUCT_REGISTRY_CONTRACT_ID);
@@ -97,7 +97,7 @@ export class ProductRegistryService {
         title: string,
         riskLevel: number,
         deadline?: number
-    ) {
+    ): Promise<any> {
         if (!PRODUCT_REGISTRY_CONTRACT_ID) throw new Error('PRODUCT_REGISTRY_CONTRACT_ID not configured');
 
         const deadlineValue = deadline || Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
@@ -131,7 +131,7 @@ export class ProductRegistryService {
     /**
      * Advance product status: Active → InProgress → Review
      */
-    async advanceStatus(supplierKey: string, productId: string) {
+    async advanceStatus(supplierKey: string, productId: string): Promise<any> {
         if (!PRODUCT_REGISTRY_CONTRACT_ID) throw new Error('PRODUCT_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(PRODUCT_REGISTRY_CONTRACT_ID);
@@ -166,7 +166,7 @@ export class ProductRegistryService {
         sellerAddress: string,
         productId: string,
         proofCid: string
-    ) {
+    ): Promise<any> {
         if (!PRODUCT_REGISTRY_CONTRACT_ID) throw new Error('PRODUCT_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(PRODUCT_REGISTRY_CONTRACT_ID);

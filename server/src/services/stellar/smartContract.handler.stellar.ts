@@ -5,8 +5,34 @@ import logger from '../../util/logger.js';
 
 dotenv.config();
 
-// Initialize server with Soroban testnet
-export const server = new StellarSdk.rpc.Server(process.env.SOROBAN_RPC_URL as string);
+// Initialize server with Soroban testnet and DNS retry
+const rpcUrl = process.env.SOROBAN_RPC_URL as string;
+export const server = new StellarSdk.rpc.Server(rpcUrl, {
+  allowHttp: rpcUrl.startsWith('http://'),
+});
+
+// Add DNS retry logic for Soroban RPC
+const originalFetch = (global as any).fetch;
+if (typeof originalFetch === 'function') {
+  (global as any).fetch = async (url: any, options: any) => {
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        return await originalFetch(url, options);
+      } catch (error: any) {
+        if (error?.code === 'EAI_AGAIN' || error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
+          retries--;
+          console.warn(`[Stellar] RPC Fetch failed (${error.code}). Retrying in 1s... (${retries} left)`);
+          await new Promise(r => setTimeout(r, 1000));
+          if (retries === 0) throw error;
+        } else {
+          throw error;
+        }
+      }
+    }
+  };
+}
+
 export const horizonServer = new StellarSdk.Horizon.Server("https://horizon-testnet.stellar.org");
 export const STACK_ADMIN_SECRET = (() => {
   const secret = process.env.STACK_ADMIN_SECRET || "";

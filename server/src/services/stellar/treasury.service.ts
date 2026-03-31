@@ -19,7 +19,7 @@ export class TreasuryService {
     /**
      * Initialize the Treasury contract.
      */
-    async initialize(adminKey: string, multiSigThreshold: bigint, requiredApprovals: number) {
+    async initialize(adminKey: string, multiSigThreshold: bigint, requiredApprovals: number): Promise<any> {
         if (!TREASURY_CONTRACT_ID) throw new Error('TREASURY_CONTRACT_ID not configured');
 
         const contract = new Contract(TREASURY_CONTRACT_ID);
@@ -45,7 +45,7 @@ export class TreasuryService {
     /**
      * Add an authorized signer.
      */
-    async addSigner(adminKey: string, signerAddress: string) {
+    async addSigner(adminKey: string, signerAddress: string): Promise<any> {
         if (!TREASURY_CONTRACT_ID) throw new Error('TREASURY_CONTRACT_ID not configured');
 
         const contract = new Contract(TREASURY_CONTRACT_ID);
@@ -70,7 +70,7 @@ export class TreasuryService {
     /**
      * Deposit funds.
      */
-    async deposit(dividerKey: string, amount: bigint, purpose: string) {
+    async deposit(dividerKey: string, amount: bigint, purpose: string): Promise<any> {
         if (!TREASURY_CONTRACT_ID) throw new Error('TREASURY_CONTRACT_ID not configured');
 
         const contract = new Contract(TREASURY_CONTRACT_ID);
@@ -96,7 +96,7 @@ export class TreasuryService {
     /**
      * Withdraw funds (creates request if > threshold).
      */
-    async withdraw(dividerKey: string, amount: bigint, purpose: string) {
+    async withdraw(dividerKey: string, amount: bigint, purpose: string): Promise<any> {
         if (!TREASURY_CONTRACT_ID) throw new Error('TREASURY_CONTRACT_ID not configured');
 
         const contract = new Contract(TREASURY_CONTRACT_ID);
@@ -122,7 +122,7 @@ export class TreasuryService {
     /**
      * Approve a withdrawal request.
      */
-    async approveWithdrawal(signerKey: string, requestId: number) {
+    async approveWithdrawal(signerKey: string, requestId: number): Promise<any> {
         if (!TREASURY_CONTRACT_ID) throw new Error('TREASURY_CONTRACT_ID not configured');
 
         const contract = new Contract(TREASURY_CONTRACT_ID);
@@ -147,7 +147,7 @@ export class TreasuryService {
     /**
      * Set budget limit for a division.
      */
-    async setBudget(adminKey: string, divisionAddress: string, maxAmount: bigint) {
+    async setBudget(adminKey: string, divisionAddress: string, maxAmount: bigint): Promise<any> {
         if (!TREASURY_CONTRACT_ID) throw new Error('TREASURY_CONTRACT_ID not configured');
 
         const contract = new Contract(TREASURY_CONTRACT_ID);

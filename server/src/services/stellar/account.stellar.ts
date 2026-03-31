@@ -1,5 +1,5 @@
 import { STELLAR_CONFIG, createKeypair } from './config.stellar.js';
-import { Operation, Keypair, xdr } from '@stellar/stellar-sdk';
+import { Operation, Keypair, xdr, TransactionBuilder } from '@stellar/stellar-sdk';
 import { adminSequenceManager, horizonServer } from './smartContract.handler.stellar.js';
 import dotenv from 'dotenv';
 dotenv.config();

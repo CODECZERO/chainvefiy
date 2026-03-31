@@ -19,7 +19,8 @@ const buildCreateEscrowTx = AsyncHandler(async (req: Request, res: Response) => 
     lockedAmount,
     taskId,
     deadline || Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
-    asset
+    asset,
+    req.body.sequence
   );
 
   return res.status(200).json(new ApiResponse(200, { xdr, classicFallback }, 'Escrow transaction built'));
@@ -32,7 +33,7 @@ const buildSubmitProofTx = AsyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(400, 'Missing required fields');
   }
 
-  const xdr = await escrowService.buildSubmitProofTx(supplierPublicKey, taskId, proofCid);
+  const xdr = await escrowService.buildSubmitProofTx(supplierPublicKey, taskId, proofCid, req.body.sequence);
   return res.status(200).json(new ApiResponse(200, { xdr }, 'Submit proof transaction built'));
 });
 
@@ -43,7 +44,7 @@ const buildVoteTx = AsyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(400, 'Missing required fields');
   }
 
-  const xdr = await escrowService.buildVoteTx(voterPublicKey, taskId, isScam);
+  const xdr = await escrowService.buildVoteTx(voterPublicKey, taskId, isScam, req.body.sequence);
   return res.status(200).json(new ApiResponse(200, { xdr }, 'Vote transaction built'));
 });
 
@@ -54,7 +55,7 @@ const buildRequestReturnTx = AsyncHandler(async (req: Request, res: Response) =>
     throw new ApiError(400, 'Missing required fields');
   }
 
-  const xdr = await escrowService.buildRequestReturnTx(buyerPublicKey, taskId);
+  const xdr = await escrowService.buildRequestReturnTx(buyerPublicKey, taskId, req.body.sequence);
   return res.status(200).json(new ApiResponse(200, { xdr }, 'Request return transaction built'));
 });
 
@@ -65,7 +66,7 @@ const buildConfirmReturnTx = AsyncHandler(async (req: Request, res: Response) =>
     throw new ApiError(400, 'Missing required fields');
   }
 
-  const xdr = await escrowService.buildConfirmReturnTx(supplierPublicKey, taskId);
+  const xdr = await escrowService.buildConfirmReturnTx(supplierPublicKey, taskId, req.body.sequence);
   return res.status(200).json(new ApiResponse(200, { xdr }, 'Confirm return transaction built'));
 });
 

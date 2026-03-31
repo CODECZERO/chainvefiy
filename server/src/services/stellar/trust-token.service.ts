@@ -19,7 +19,7 @@ export class TrustTokenService {
     /**
      * Initialize the Trust Token contract.
      */
-    async initialize(adminKey: string) {
+    async initialize(adminKey: string): Promise<any> {
         if (!TRUST_TOKEN_CONTRACT_ID) throw new Error('TRUST_TOKEN_CONTRACT_ID not configured');
 
         const contract = new Contract(TRUST_TOKEN_CONTRACT_ID);
@@ -41,7 +41,7 @@ export class TrustTokenService {
     /**
      * Add an authorized minter.
      */
-    async addMinter(adminKey: string, minterAddress: string) {
+    async addMinter(adminKey: string, minterAddress: string): Promise<any> {
         if (!TRUST_TOKEN_CONTRACT_ID) throw new Error('TRUST_TOKEN_CONTRACT_ID not configured');
 
         const contract = new Contract(TRUST_TOKEN_CONTRACT_ID);
@@ -66,7 +66,7 @@ export class TrustTokenService {
     /**
      * Remove an authorized minter.
      */
-    async removeMinter(adminKey: string, minterAddress: string) {
+    async removeMinter(adminKey: string, minterAddress: string): Promise<any> {
         if (!TRUST_TOKEN_CONTRACT_ID) throw new Error('TRUST_TOKEN_CONTRACT_ID not configured');
 
         const contract = new Contract(TRUST_TOKEN_CONTRACT_ID);

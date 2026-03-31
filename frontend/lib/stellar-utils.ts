@@ -2,117 +2,10 @@
 import { getWalletBalance, verifyBountyPayment, createStellarAccount as apiCreateStellarAccount, walletPay, sendPayment, getEscrowXdr, getVoteXdr, getSubmitProofXdr, submitEscrowTx } from './api-service';
 import { kit } from './stellar-kit';
 
-// Mock Stellar SDK classes and functions for frontend compatibility
-const Networks = {
-  TESTNET_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015",
+// Stellar SDK constants
+export const NETWORKS = {
+  TESTNET: "Test SDF Network ; September 2015",
 }
-
-const BASE_FEE = "100"
-
-class Server {
-  constructor(private url: string) { }
-
-  async loadAccount(publicKey: string) {
-    try {
-      // Use real API to get balance
-      const response = await getWalletBalance(publicKey);
-      const balances = response.data || [];
-
-      return {
-        id: publicKey,
-        account_id: publicKey,
-        balances: balances.map((balance: any) => ({
-          balance: balance.balance.toString(),
-          asset_type: balance.asset === "XLM" ? "native" : "credit_alphanum4",
-          asset_code: balance.asset !== "XLM" ? balance.asset : undefined,
-          asset_issuer: balance.issuer || undefined,
-        })),
-        sequence: "1",
-      }
-    } catch (error) {
-
-      // Fallback to mock data
-      return {
-        id: publicKey,
-        account_id: publicKey,
-        balances: [
-          {
-            balance: "1000.0000000",
-            asset_type: "native",
-          },
-        ],
-        sequence: "1",
-      }
-    }
-  }
-
-  async submitTransaction(signedTx: any) {
-    // Mock transaction submission - in real implementation, this would submit to Stellar network
-    return {
-      hash: `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      ledger: Math.floor(Math.random() * 1000000),
-      successful: true,
-    }
-  }
-}
-
-class TransactionBuilder {
-  private operations: any[] = []
-  private memo: any = null
-  private timeout = 30
-
-  constructor(
-    private account: any,
-    private options: any,
-  ) { }
-
-  addMemo(memo: any) {
-    this.memo = memo
-    return this
-  }
-
-  addOperation(operation: any) {
-    this.operations.push(operation)
-    return this
-  }
-
-  setTimeout(timeout: number) {
-    this.timeout = timeout
-    return this
-  }
-
-  build() {
-    return {
-      toEnvelope: () => ({
-        toXDR: () => `mock_xdr_${Date.now()}`,
-      }),
-    }
-  }
-}
-
-const Operation = {
-  payment: (options: any) => ({
-    type: "payment",
-    ...options,
-  }),
-}
-
-const Asset = {
-  native: () => ({
-    code: "XLM",
-    issuer: null,
-  }),
-}
-
-const Memo = {
-  text: (text: string) => ({
-    type: "text",
-    value: text,
-  }),
-}
-
-const server = new Server("https://horizon-testnet.stellar.org")
-const networkPassphrase = Networks.TESTNET_NETWORK_PASSPHRASE
 
 /**
  * Submit a bounty payment on Stellar.
@@ -296,7 +189,13 @@ export async function submitEscrowTransaction(
   try {
     // 1. Get Unified XDR from Backend (classic payments + Soroban contract call combined)
     console.log("[STELLAR] Requesting Unified Escrow XDR for task:", data.taskId);
-    const response = await getEscrowXdr(data);
+    
+    // Fetch latest sequence from Horizon for perfect synchronization
+    const { Horizon } = await import('@stellar/stellar-sdk');
+    const horizon = new Horizon.Server('https://horizon-testnet.stellar.org');
+    const account = await horizon.loadAccount(data.buyerPublicKey);
+    
+    const response = await getEscrowXdr({ ...data, sequence: account.sequence });
     console.log("[STELLAR] Raw Escrow API Response Data:", JSON.stringify(response.data, null, 2));
 
     if (!response.success || !response.data?.xdr) {
@@ -348,33 +247,28 @@ export async function submitVoteTransaction(
 
 
     // 1. Get XDR
-    const response = await getVoteXdr(data);
+    const { Horizon } = await import('@stellar/stellar-sdk');
+    const horizon = new Horizon.Server('https://horizon-testnet.stellar.org');
+    const account = await horizon.loadAccount(data.voterWallet);
+    
+    const response = await getVoteXdr({ ...data, sequence: account.sequence });
     if (!response.success || !response.data?.xdr) {
       throw new Error(response.message || "Failed to generate Vote XDR");
     }
     const xdr = response.data.xdr;
 
     // 2. Sign
-    const signedXDR = await signTransaction(xdr);
+    const signedResult = await signTransaction(xdr);
+    const signedXdr = typeof signedResult === 'string'
+      ? signedResult
+      : (signedResult as any)?.signedTxXdr ?? (signedResult as any)?.txXdr ?? signedResult;
 
-    // 3. Submit
-    const StellarSdk = await import('@stellar/stellar-sdk');
-    const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org');
+    // 3. Submit to backend (consistent with escrow flow)
+    const submitResult = await submitEscrowTx({ signedXdr });
+    return { success: true, hash: submitResult.data?.hash };
 
-    const signedTransaction = StellarSdk.TransactionBuilder.fromXDR(
-      signedXDR,
-      StellarSdk.Networks.TESTNET
-    );
-    const transactionHash = signedTransaction.hash().toString('hex');
-
-
-    const result = await server.submitTransaction(signedTransaction);
-
-
-    return { success: true, hash: transactionHash };
-
-  } catch (error) {
-
+  } catch (error: any) {
+    console.error("[STELLAR] Vote failed:", error);
     throw error;
   }
 }
@@ -391,32 +285,28 @@ export async function submitProofTransaction(
 
 
     // 1. Get XDR
-    const response = await getSubmitProofXdr(data);
+    const { Horizon } = await import('@stellar/stellar-sdk');
+    const horizon = new Horizon.Server('https://horizon-testnet.stellar.org');
+    const account = await horizon.loadAccount(data.supplierPublicKey);
+    
+    const response = await getSubmitProofXdr({ ...data, sequence: account.sequence });
     if (!response.success || !response.data?.xdr) {
       throw new Error(response.message || "Failed to generate Proof XDR");
     }
     const xdr = response.data.xdr;
 
     // 2. Sign
-    const signedXDR = await signTransaction(xdr);
+    const signedResult = await signTransaction(xdr);
+    const signedXdr = typeof signedResult === 'string'
+      ? signedResult
+      : (signedResult as any)?.signedTxXdr ?? (signedResult as any)?.txXdr ?? signedResult;
 
-    // 3. Submit
-    const StellarSdk = await import('@stellar/stellar-sdk');
-    const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org');
+    // 3. Submit to backend
+    const submitResult = await submitEscrowTx({ signedXdr });
+    return { success: true, hash: submitResult.data?.hash };
 
-    const signedTransaction = StellarSdk.TransactionBuilder.fromXDR(
-      signedXDR,
-      StellarSdk.Networks.TESTNET
-    );
-    const transactionHash = signedTransaction.hash().toString('hex');
-
-
-    const result = await server.submitTransaction(signedTransaction);
-
-
-    return { success: true, hash: transactionHash };
-
-  } catch (error) {
+  } catch (error: any) {
+    console.error("[STELLAR] Proof submission failed:", error);
     throw error;
   }
 }

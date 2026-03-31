@@ -45,17 +45,17 @@ export class EscrowService {
         lockedAmount: number,
         taskId: string,
         deadline: number,
-        asset?: string
+        asset?: string,
+        sequence?: string
     ) {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
 
-        // Load accounts
-        const horizonAccount = await horizonServer.loadAccount(buyerPublicKey);
-        
-        // Use the sequence account object from Horizon which is most up-to-date
-        const sourceAccount = new Account(buyerPublicKey, horizonAccount.sequence);
+        // 1. Load account from Horizon to get the MOST RELIABLE sequence number
+        // If frontend provided a sequence, use it; otherwise fetch from Horizon
+        const seq = sequence || (await horizonServer.loadAccount(buyerPublicKey)).sequence;
+        const sourceAccount = new Account(buyerPublicKey, seq);
 
         // Assets
         const assetCode = (asset || 'USDC').toUpperCase();
@@ -82,6 +82,7 @@ export class EscrowService {
 
         // 1. Trustline (Non-Native only)
         if (!isXlm) {
+            const horizonAccount = await horizonServer.loadAccount(buyerPublicKey);
             const hasTrustline = (horizonAccount.balances as any[]).some(
                 (b: any) => b.asset_code === stellarAsset.code && b.asset_issuer === stellarAsset.issuer
             );
@@ -116,6 +117,7 @@ export class EscrowService {
                 'create_escrow',
                 new Address(buyerPublicKey).toScVal(),
                 new Address(supplierPublicKey).toScVal(),
+                // Native assets in Soroban are always handled as i128 with the same 7-decimal scale as XLM in Classic
                 nativeToScVal(BigInt(Math.round(totalAmount * 10000000)), { type: 'i128' }),
                 nativeToScVal(BigInt(Math.round(lockedAmount * 10000000)), { type: 'i128' }),
                 nativeToScVal(taskId, { type: 'string' }),
@@ -143,12 +145,15 @@ export class EscrowService {
             console.warn(`[STELLAR]    Error: ${error?.message || error}`);
 
             // Rebuild without the Soroban Op since the previous builder holds the failed state
-            const fallbackBuilder = new TransactionBuilder(sourceAccount, {
+            const horizonAccountFallback = await horizonServer.loadAccount(buyerPublicKey);
+            const sourceAccountFallback = new Account(buyerPublicKey, horizonAccountFallback.sequence);
+            
+            const fallbackBuilder = new TransactionBuilder(sourceAccountFallback, {
                 fee: "1000",
                 networkPassphrase: Networks.TESTNET
             });
             if (!isXlm) {
-                const hasTrustline = (horizonAccount.balances as any[]).some((b: any) => b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER);
+                const hasTrustline = (horizonAccountFallback.balances as any[]).some((b: any) => b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER);
                 if (!hasTrustline) fallbackBuilder.addOperation(Operation.changeTrust({ asset: stellarAsset }));
             }
             if (Number(directAmount) > 0) {
@@ -168,40 +173,23 @@ export class EscrowService {
         const tx = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
         const txHash = tx.hash().toString('hex');
 
-        console.log(`[STELLAR] Submitting transaction ${txHash} to RPC...`);
-        let result = await this.server.sendTransaction(tx);
-
-        if (result.status === 'ERROR') {
-            const errorResult: any = result.errorResult;
-            const resultName = errorResult?.result?._switch?.name;
+        console.log(`[STELLAR] Submitting transaction ${txHash} to Horizon (optimized for sequence sync)...`);
+        let result;
+        try {
+            // Prefer Horizon for submission as it integrates better with our sequence management
+            result = await horizonServer.submitTransaction(tx);
+        } catch (error: any) {
+            const resultName = error.response?.data?.extras?.result_codes?.transaction;
+            console.error(`[STELLAR] Horizon Submission Error: ${resultName}`, error.response?.data || error.message);
             
-            console.error(`[STELLAR] RPC Submission Error: ${resultName}`, JSON.stringify(result, null, 2));
-            
-            if (resultName === 'txBadSeq') {
+            if (resultName === 'tx_bad_seq') {
                 throw new ApiError(400, "Your transaction sequence is out of sync. Please refresh the page and try again.");
             }
-            throw new Error(`Transaction failed: ${JSON.stringify(result.errorResult || result)}`);
+            throw new Error(`Transaction failed: ${resultName || error.message}`);
         }
 
-        // We return immediately with the hash, but the caller (controller) 
-        // will wait or we can provide a status check endpoint.
-        // For simple backgrounding, we'll await confirmation here but the frontend call will be one-shot.
-
-        let status: any = result.status;
-        let polls = 0;
-        while ((status === 'PENDING' || status === 'NOT_FOUND') && polls < 30) {
-            await new Promise(r => setTimeout(r, 1000));
-            const txResponse = await this.server.getTransaction(txHash);
-            status = txResponse.status;
-            polls++;
-        }
-
-        if (status !== 'SUCCESS') {
-            throw new Error(`Transaction confirmation failed with status: ${status}`);
-        }
-
-        console.log(`[STELLAR] Transaction ${txHash} confirmed!`);
-        return { hash: txHash, status };
+        console.log(`[STELLAR] Transaction confirmed: ${result.hash}`);
+        return { hash: result.hash, status: 'SUCCESS' };
     }
 
     /**
@@ -210,15 +198,17 @@ export class EscrowService {
     async buildSubmitProofTx(
         supplierPublicKey: string,
         taskId: string,
-        proofCid: string
+        proofCid: string,
+        sequence?: string
     ) {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
-        const sourceAccount = await this.server.getAccount(supplierPublicKey);
+        const seq = sequence || (await horizonServer.loadAccount(supplierPublicKey)).sequence;
+        const sourceAccount = new Account(supplierPublicKey, seq);
 
         const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
+            fee: "1000",
             networkPassphrase: Networks.TESTNET
         })
             .addOperation(contract.call(
@@ -239,15 +229,17 @@ export class EscrowService {
     async buildVoteTx(
         voterPublicKey: string,
         taskId: string,
-        isScam: boolean
+        isScam: boolean,
+        sequence?: string
     ) {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
-        const sourceAccount = await this.server.getAccount(voterPublicKey);
+        const seq = sequence || (await horizonServer.loadAccount(voterPublicKey)).sequence;
+        const sourceAccount = new Account(voterPublicKey, seq);
 
         const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
+            fee: "1000",
             networkPassphrase: Networks.TESTNET
         })
             .addOperation(contract.call(
@@ -268,12 +260,14 @@ export class EscrowService {
      */
     async buildRequestReturnTx(
         buyerPublicKey: string,
-        taskId: string
+        taskId: string,
+        sequence?: string
     ) {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
-        const sourceAccount = await this.server.getAccount(buyerPublicKey);
+        const seq = sequence || (await horizonServer.loadAccount(buyerPublicKey)).sequence;
+        const sourceAccount = new Account(buyerPublicKey, seq);
 
         const tx = new TransactionBuilder(sourceAccount, {
             fee: "100",
@@ -295,12 +289,14 @@ export class EscrowService {
      */
     async buildConfirmReturnTx(
         supplierPublicKey: string,
-        taskId: string
+        taskId: string,
+        sequence?: string
     ) {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
-        const sourceAccount = await this.server.getAccount(supplierPublicKey);
+        const seq = sequence || (await horizonServer.loadAccount(supplierPublicKey)).sequence;
+        const sourceAccount = new Account(supplierPublicKey, seq);
 
         const tx = new TransactionBuilder(sourceAccount, {
             fee: "100",

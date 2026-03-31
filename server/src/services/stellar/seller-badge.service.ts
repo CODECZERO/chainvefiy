@@ -19,7 +19,7 @@ export class SellerBadgeService {
     /**
      * Initialize the Seller Badge contract.
      */
-    async initialize(adminKey: string) {
+    async initialize(adminKey: string): Promise<any> {
         if (!SELLER_BADGE_CONTRACT_ID) throw new Error('SELLER_BADGE_CONTRACT_ID not configured');
 
         const contract = new Contract(SELLER_BADGE_CONTRACT_ID);
@@ -41,7 +41,7 @@ export class SellerBadgeService {
     /**
      * Mint a badge.
      */
-    async mint(sellerAddress: string, productId: string, rank: string) {
+    async mint(sellerAddress: string, productId: string, rank: string): Promise<any> {
         if (!SELLER_BADGE_CONTRACT_ID) throw new Error('SELLER_BADGE_CONTRACT_ID not configured');
 
         const contract = new Contract(SELLER_BADGE_CONTRACT_ID);
@@ -64,7 +64,7 @@ export class SellerBadgeService {
     /**
      * Revoke a badge.
      */
-    async revoke(adminKey: string, sellerAddress: string, productId: string) {
+    async revoke(adminKey: string, sellerAddress: string, productId: string): Promise<any> {
         if (!SELLER_BADGE_CONTRACT_ID) throw new Error('SELLER_BADGE_CONTRACT_ID not configured');
 
         const contract = new Contract(SELLER_BADGE_CONTRACT_ID);

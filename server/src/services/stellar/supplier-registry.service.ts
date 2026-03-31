@@ -20,7 +20,7 @@ export class SupplierRegistryService {
     /**
      * Initialize the Supplier Registry contract.
      */
-    async initialize(adminKey: string) {
+    async initialize(adminKey: string): Promise<any> {
         if (!SUPPLIER_REGISTRY_CONTRACT_ID) throw new Error('SUPPLIER_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(SUPPLIER_REGISTRY_CONTRACT_ID);
@@ -48,7 +48,7 @@ export class SupplierRegistryService {
         category: number,
         rank: string,
         trustScore: number
-    ) {
+    ): Promise<any> {
         if (!SUPPLIER_REGISTRY_CONTRACT_ID) throw new Error('SUPPLIER_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(SUPPLIER_REGISTRY_CONTRACT_ID);
@@ -79,7 +79,7 @@ export class SupplierRegistryService {
     /**
      * Update trust score.
      */
-    async updateTrustScore(ownerKey: string, newTrustScore: number) {
+    async updateTrustScore(ownerKey: string, newTrustScore: number): Promise<any> {
         if (!SUPPLIER_REGISTRY_CONTRACT_ID) throw new Error('SUPPLIER_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(SUPPLIER_REGISTRY_CONTRACT_ID);
@@ -104,7 +104,7 @@ export class SupplierRegistryService {
     /**
      * Promote a supplier.
      */
-    async promote(adminKey: string, ownerAddress: string, newRank: string) {
+    async promote(adminKey: string, ownerAddress: string, newRank: string): Promise<any> {
         if (!SUPPLIER_REGISTRY_CONTRACT_ID) throw new Error('SUPPLIER_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(SUPPLIER_REGISTRY_CONTRACT_ID);
@@ -132,7 +132,7 @@ export class SupplierRegistryService {
     /**
      * Suspend a supplier.
      */
-    async suspend(adminKey: string, ownerAddress: string) {
+    async suspend(adminKey: string, ownerAddress: string): Promise<any> {
         if (!SUPPLIER_REGISTRY_CONTRACT_ID) throw new Error('SUPPLIER_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(SUPPLIER_REGISTRY_CONTRACT_ID);
@@ -157,7 +157,7 @@ export class SupplierRegistryService {
     /**
      * Reinstate a suspended supplier.
      */
-    async reinstate(adminKey: string, ownerAddress: string) {
+    async reinstate(adminKey: string, ownerAddress: string): Promise<any> {
         if (!SUPPLIER_REGISTRY_CONTRACT_ID) throw new Error('SUPPLIER_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(SUPPLIER_REGISTRY_CONTRACT_ID);
@@ -182,7 +182,7 @@ export class SupplierRegistryService {
     /**
      * Set category capacity.
      */
-    async setCategoryCapacity(adminKey: string, category: number, capacity: number) {
+    async setCategoryCapacity(adminKey: string, category: number, capacity: number): Promise<any> {
         if (!SUPPLIER_REGISTRY_CONTRACT_ID) throw new Error('SUPPLIER_REGISTRY_CONTRACT_ID not configured');
 
         const contract = new Contract(SUPPLIER_REGISTRY_CONTRACT_ID);

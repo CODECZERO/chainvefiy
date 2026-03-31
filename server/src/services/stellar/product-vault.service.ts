@@ -41,7 +41,7 @@ export class ProductVaultService {
     /**
      * Stores any data object on-chain in a specific collection.
      */
-    async put(collection: string, id: string, data: any, skipIndex: boolean = false) {
+    async put(collection: string, id: string, data: any, skipIndex: boolean = false): Promise<any> {
         if (!this.isContractValid()) {
             logger.warn(`[VAULT] Skipping on-chain storage: Invalid or missing Contract ID (${VAULT_CONTRACT_ID})`);
             return; // Fail silently/gracefully during development to allow DB updates to proceed
@@ -66,7 +66,7 @@ export class ProductVaultService {
         });
 
         const contract = new Contract(VAULT_CONTRACT_ID);
-        
+
         try {
             // Build and sign transaction with globally synchronized helper
             const tx = await adminSequenceManager.buildTransaction([
@@ -79,13 +79,11 @@ export class ProductVaultService {
 
             tx.sign(this.adminKeypair);
             const result = await horizonServer.submitTransaction(tx);
+            // result is of type Horizon.SubmitTransactionResponse
+            // Horizon responses don't have .status, they indicate success by being returned.
+            // Explicit error codes are in error.response.data.extras.result_codes.transaction.
 
-            if (result.status === 'ERROR' && (result as any).errorResult?.result?._switch?.name === 'txBadSeq') {
-                await adminSequenceManager.refresh();
-                throw new Error("Stellar sequence out of sync. Please retry.");
-            }
-
-            logger.info(`[VAULT] Transaction sent: ${result.hash} (status: ${result.status})`);
+            logger.info(`[VAULT] Transaction confirmed: ${result.hash}`);
 
             // 3. Update Index (Secondary on-chain record for fast retrieval)
             if (!skipIndex && collection !== 'System') {
@@ -512,7 +510,7 @@ export class ProductVaultService {
     /**
      * Migrate an entry from Hot → Cold zone.
      */
-    async migrateToCold(collection: string, id: string) {
+    async migrateToCold(collection: string, id: string): Promise<any> {
         if (!this.isContractValid()) {
             logger.warn(`[VAULT] Skipping migration: Invalid or missing Contract ID`);
             return;
@@ -538,7 +536,7 @@ export class ProductVaultService {
     /**
      * Delete an entry.
      */
-    async delete(collection: string, id: string) {
+    async delete(collection: string, id: string): Promise<any> {
         if (!this.isContractValid()) {
             logger.warn(`[VAULT] Skipping deletion: Invalid or missing Contract ID`);
             return;

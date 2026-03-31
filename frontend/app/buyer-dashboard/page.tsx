@@ -62,7 +62,7 @@ export default function BuyerDashboard() {
   const { publicKey } = useWallet()
   const [active, setActive] = useState("orders")
   const [orders, setOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [selectedQr, setSelectedQr] = useState<string | null>(null)
   const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
@@ -70,7 +70,7 @@ export default function BuyerDashboard() {
   useEffect(() => { loadOrders() }, [user?.id, publicKey])
 
   const loadOrders = async () => {
-    if (!user?.id && !publicKey) { setLoading(false); return }
+    if (!user?.id && !publicKey) return
     setLoading(true)
     try {
       const query = user?.id ? `buyerId=${user.id}` : `stellarWallet=${publicKey}`
@@ -121,7 +121,9 @@ export default function BuyerDashboard() {
     : active === "completed" ? orders.filter(o => o.status === "COMPLETED")
     : orders
 
-  if (loading && !user && !publicKey) {
+  const isDashboardReady = !authLoading && (user?.id || publicKey)
+  
+  if (authLoading || (loading && isDashboardReady)) {
     return (
       <div className="min-h-screen bg-background text-foreground">
         <Header />
@@ -146,12 +148,12 @@ export default function BuyerDashboard() {
     )
   }
 
-  if (!user?.id && !publicKey) {
+  if (!isDashboardReady) {
     return (
       <div className="min-h-screen bg-background text-foreground">
         <Header />
-        <div className="max-w-4xl mx-auto px-4 py-10">
-          <WalletRequirement fallbackMessage="Please connect your wallet to view your purchase history." />
+        <div className="max-w-4xl mx-auto px-4 py-20">
+          <WalletRequirement fallbackMessage="Please connect your wallet or sign in as a buyer to view your purchase history." />
         </div>
       </div>
     )
