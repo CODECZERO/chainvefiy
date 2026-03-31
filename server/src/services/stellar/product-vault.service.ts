@@ -8,7 +8,7 @@ import {
     TransactionBuilder,
     Networks
 } from '@stellar/stellar-sdk';
-import { server, STACK_ADMIN_SECRET } from './smartContract.handler.stellar.js';
+import { server, horizonServer, STACK_ADMIN_SECRET, adminSequenceManager } from './smartContract.handler.stellar.js';
 import { compressData, decompressData } from '../../utils/compression.utils.js';
 import logger from '../../util/logger.js';
 import { logCompression, logDecompression } from '../../util/compressionLogger.js';
@@ -66,97 +66,48 @@ export class ProductVaultService {
         });
 
         const contract = new Contract(VAULT_CONTRACT_ID);
-        let retries = 3;
+        
+        try {
+            // Build and sign transaction with globally synchronized helper
+            const tx = await adminSequenceManager.buildTransaction([
+                contract.call('put',
+                    nativeToScVal(collection, { type: 'string' }),
+                    nativeToScVal(id, { type: 'string' }),
+                    nativeToScVal(compressed)
+                )
+            ]);
 
-        while (retries > 0) {
-            try {
-                // Refresh account sequence on every retry
-                const sourceAccount = await this.server.getAccount(this.adminKeypair.publicKey());
+            tx.sign(this.adminKeypair);
+            const result = await horizonServer.submitTransaction(tx);
 
-                // 1. Build Transaction
-                const tx = new TransactionBuilder(sourceAccount, {
-                    fee: "100",
-                    networkPassphrase: Networks.TESTNET
-                })
-                    .addOperation(contract.call(
-                        'put',
-                        nativeToScVal(collection, { type: 'string' }),
-                        nativeToScVal(id, { type: 'string' }),
-                        nativeToScVal(compressed)
-                    ))
-                    .setTimeout(30)
-                    .build();
-
-                // 2. Prepare, Sign and Send
-                const preparedTx = await this.server.prepareTransaction(tx);
-                preparedTx.sign(this.adminKeypair);
-                const result = await this.server.sendTransaction(preparedTx);
-
-                if (result.status === 'ERROR') {
-                    // Check if it's a Bad Sequence error
-                    const errorString = JSON.stringify(result.errorResult);
-                    if (errorString.includes('txBadSeq')) {
-                        const jitter = Math.floor(Math.random() * 2000);
-                        logger.warn(`[VAULT] txBadSeq encountered. Retrying in ${2000 + jitter}ms... (${retries} left)`);
-                        retries--;
-                        await new Promise(res => setTimeout(res, 2000 + jitter));
-                        continue;
-                    }
-                    throw new Error(`Vault storage transaction failed: ${errorString}`);
-                }
-
-                logger.info(`[VAULT] Transaction sent: ${result.hash} (status: ${result.status})`);
-
-                // Wait for transaction confirmation before proceeding
-                if (result.status === 'PENDING') {
-                    let txResponse = await this.server.getTransaction(result.hash);
-                    let polls = 0;
-                    while (txResponse.status === 'NOT_FOUND' && polls < 15) {
-                        await new Promise(res => setTimeout(res, 1000));
-                        txResponse = await this.server.getTransaction(result.hash);
-                        polls++;
-                    }
-                    if (txResponse.status === 'SUCCESS') {
-                        logger.info(`[VAULT] Transaction confirmed: ${result.hash}`);
-                    } else {
-                        logger.warn(`[VAULT] Transaction status after polling: ${txResponse.status}`);
-                    }
-                }
-
-                // 3. Update Index (Secondary on-chain record for fast retrieval)
-                if (!skipIndex && collection !== 'System') {
-                    await this.updateIndex(collection, id);
-                }
-
-                // 4. Invalidate relevant cache
-                const cacheKey = `${collection}:${id}`;
-                this.cache.delete(cacheKey);
-                // Also invalidate the index cache if it's an index update
-                if (collection.endsWith('_Index')) {
-                    this.cache.delete(cacheKey);
-                } else if (collection !== 'System') {
-                    // If it's a regular put, we might have invalidated a bulk index implicitly
-                    // For safety, clear all index cache related to this collection if it exists
-                    const indexCacheKey = `System:Index_${collection}`;
-                    this.cache.delete(indexCacheKey);
-                }
-
-                return; // Success, exit function
-
-            } catch (error: any) {
-                // If the error object itself implies a sequence issue (rare with sdk, usually in result)
-                if (error.message && error.message.includes('txBadSeq')) {
-                    logger.warn(`[VAULT] txBadSeq exception. Retrying... (${retries} left)`);
-                    retries--;
-                    await new Promise(res => setTimeout(res, 2000));
-                    continue;
-                }
-
-                logger.error(`[VAULT] Failed to put data: ${error}`);
-                throw error;
+            if (result.status === 'ERROR' && (result as any).errorResult?.result?._switch?.name === 'txBadSeq') {
+                await adminSequenceManager.refresh();
+                throw new Error("Stellar sequence out of sync. Please retry.");
             }
+
+            logger.info(`[VAULT] Transaction sent: ${result.hash} (status: ${result.status})`);
+
+            // 3. Update Index (Secondary on-chain record for fast retrieval)
+            if (!skipIndex && collection !== 'System') {
+                await this.updateIndex(collection, id);
+            }
+
+            // 4. Invalidate relevant cache
+            const cacheKey = `${collection}:${id}`;
+            this.cache.delete(cacheKey);
+            if (collection.endsWith('_Index')) {
+                this.cache.delete(cacheKey);
+            } else if (collection !== 'System') {
+                const indexCacheKey = `System:Index_${collection}`;
+                this.cache.delete(indexCacheKey);
+            }
+
+            return result;
+
+        } catch (error: any) {
+            logger.error(`[VAULT] Failed to put data: ${error}`);
+            throw error;
         }
-        throw new Error(`[VAULT] Failed to put data after retries (txBadSeq loop)`);
     }
 
     /**
@@ -568,23 +519,17 @@ export class ProductVaultService {
         }
 
         const contract = new Contract(VAULT_CONTRACT_ID);
-        const sourceAccount = await this.server.getAccount(this.adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'migrate_to_cold',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('migrate_to_cold',
                 nativeToScVal(collection, { type: 'string' }),
                 nativeToScVal(id, { type: 'string' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(this.adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(this.adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[VAULT] Migrated ${collection}:${id} to cold storage - ${result.hash}`);
         return result;
@@ -600,23 +545,17 @@ export class ProductVaultService {
         }
 
         const contract = new Contract(VAULT_CONTRACT_ID);
-        const sourceAccount = await this.server.getAccount(this.adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'delete',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('delete',
                 nativeToScVal(collection, { type: 'string' }),
                 nativeToScVal(id, { type: 'string' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(this.adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(this.adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         // Invalidate cache
         this.cache.delete(`${collection}:${id}`);

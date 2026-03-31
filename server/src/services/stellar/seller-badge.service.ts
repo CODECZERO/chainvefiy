@@ -7,7 +7,7 @@ import {
     TransactionBuilder,
     Networks
 } from '@stellar/stellar-sdk';
-import { server, STACK_ADMIN_SECRET } from './smartContract.handler.stellar.js';
+import { server, horizonServer, STACK_ADMIN_SECRET, adminSequenceManager } from './smartContract.handler.stellar.js';
 import logger from '../../util/logger.js';
 
 const SELLER_BADGE_CONTRACT_ID = process.env.SELLER_BADGE_CONTRACT_ID || '';
@@ -26,20 +26,13 @@ export class SellerBadgeService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'initialize',
-                new Address(adminKeypair.publicKey()).toScVal()
-            ))
-            .setTimeout(30)
-            .build();
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('initialize', new Address(adminKeypair.publicKey()).toScVal())
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[SellerBadge] Initialized: ${result.hash}`);
         return result;
@@ -54,23 +47,16 @@ export class SellerBadgeService {
         const contract = new Contract(SELLER_BADGE_CONTRACT_ID);
         const sourceAccount = await this.server.getAccount(this.adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'mint',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('mint',
                 new Address(sellerAddress).toScVal(),
                 nativeToScVal(productId, { type: 'string' }),
                 nativeToScVal(rank, { type: 'string' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(this.adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
-
+        const result = await horizonServer.submitTransaction(tx);
         logger.info(`[SellerBadge] Badge minted for ${sellerAddress} - ${result.hash}`);
         return result;
     }
@@ -85,22 +71,17 @@ export class SellerBadgeService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'revoke',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('revoke',
                 new Address(adminKeypair.publicKey()).toScVal(),
                 new Address(sellerAddress).toScVal(),
                 nativeToScVal(productId, { type: 'string' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[SellerBadge] Badge revoked for ${sellerAddress} - ${result.hash}`);
         return result;

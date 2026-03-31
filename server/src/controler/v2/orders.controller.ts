@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import { uploadOnIpfs } from '../../services/ipfs(pinata)/ipfs.services.js';
 import QRCode from 'qrcode';
 import { EscrowService } from '../../services/stellar/escrow.service.js';
+import logger from '../../util/logger.js';
 
 export const placeOrder = async (req: any, res: Response) => {
   const { 
@@ -91,6 +92,19 @@ export const placeOrder = async (req: any, res: Response) => {
     data: { qrBuyerToken, qrSupplierToken, qrCodeUrl: qrBuyerDataUrl }
   });
 
+  // Eagerly initiate Living QR Journey record
+  await prisma.qRCode.create({
+    data: {
+      id: order.id, // Use orderId as QR ID for 1:1 mapping
+      shortCode: order.id,
+      token: qrBuyerToken,
+      purpose: 'ORDER_BUYER',
+      orderId: order.id,
+      productId: product.id,
+      supplierId: product.supplierId,
+    }
+  }).catch(() => {}); // Fail silently if already exists
+
   await notifySupplier(product.supplierId, 'ORDER_RECEIVED', {
     title: product.title,
     quantity,
@@ -116,7 +130,10 @@ export const getBuyerOrders = async (req: any, res: Response) => {
     if (user) finalBuyerId = user.id;
   }
 
-  if (!finalBuyerId) return res.status(401).json(new ApiResponse(401, null, 'Unauthorized or missing buyer identification'));
+  if (!finalBuyerId) {
+    logger.warn(`[Orders] getBuyerOrders failed: No identification found (query: buyerId=${buyerId}, wallet=${stellarWallet}, authUserId=${authUserId})`);
+    return res.status(401).json(new ApiResponse(401, null, 'Unauthorized or missing buyer identification'));
+  }
 
   const orders = await prisma.order.findMany({
     where: { buyerId: String(finalBuyerId) },
@@ -126,6 +143,7 @@ export const getBuyerOrders = async (req: any, res: Response) => {
     orderBy: { createdAt: 'desc' }
   });
 
+  logger.info(`[Orders] Fetched ${orders.length} orders for buyer ${finalBuyerId}`);
   return res.json(new ApiResponse(200, orders, 'Orders fetched successfully'));
 };
 
@@ -308,7 +326,14 @@ export const dispatchOrder = async (req: Request, res: Response) => {
     data: { status: 'SHIPPED' }
   });
 
-  let qrCode = await prisma.qRCode.findUnique({ where: { shortCode: id } });
+  let qrCode = await prisma.qRCode.findFirst({
+    where: {
+      OR: [
+        { shortCode: id },
+        { orderId: id }
+      ]
+    }
+  });
   if (!qrCode) {
     qrCode = await prisma.qRCode.create({
       data: {

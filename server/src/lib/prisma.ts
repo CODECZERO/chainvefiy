@@ -30,9 +30,9 @@ if (!globalForPrisma.prisma) {
   // killed by firewalls because PgBouncer responds immediately to keepalives.
   const pool = new Pool({ 
     connectionString,
-    max: 10,
+    max: 15,
     idleTimeoutMillis: 30000, 
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 20000,
     keepAlive: true,
     keepAliveInitialDelayMillis: 10000,
     ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }

@@ -56,7 +56,16 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
           onClose() 
         } else {
           const data = await res.json().catch(() => null);
-          setLocalError(data?.message || "Registration failed. Please try again.")
+          const errMsg = data?.message || "Registration failed. Please try again.";
+          setLocalError(errMsg);
+          
+          // If already registered, help the user switch to login
+          if (errMsg.includes("already registered")) {
+            setTimeout(() => {
+              // We could automatically switch to login mode here or just show the error
+              // For now, let's just make sure the error is clear
+            }, 1000);
+          }
         }
       } catch (err) {
         setLocalError("Network error. Please check your connection.")
@@ -113,7 +122,20 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
           <Input type="email" placeholder="Email address" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           <Input type="password" placeholder="Password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
 
-          {(localError || error) && <p className="text-destructive text-sm font-medium text-center">{localError || error}</p>}
+          {(localError || error) && (
+            <div className="text-center space-y-2">
+              <p className="text-destructive text-sm font-medium">{localError || error}</p>
+              {(localError || error)?.includes("already registered") && mode === "signup" && (
+                <button 
+                  type="button"
+                  onClick={() => setMode("login")}
+                  className="text-xs text-primary hover:underline font-bold"
+                >
+                  Already have an account? Sign in here
+                </button>
+              )}
+            </div>
+          )}
 
           <Button type="submit" disabled={isLoading || isSubmitting} className="w-full">
             {isLoading || isSubmitting ? "Loading..." : mode === "login" ? "Sign in" : "Create account"}

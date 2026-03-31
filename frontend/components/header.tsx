@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useSelector, useDispatch } from "react-redux"
 import type { RootState, AppDispatch } from "@/lib/redux/store"
 import { logoutUser } from "@/lib/redux/slices/user-auth-slice"
@@ -23,6 +24,7 @@ export function Header() {
   const [authModalOpen, setAuthModalOpen] = React.useState(false)
   const [userMenuOpen, setUserMenuOpen] = React.useState(false)
   const [showGuestBar, setShowGuestBar] = React.useState(false)
+  const router = useRouter()
   const dispatch = useDispatch<AppDispatch>()
 
   const { isConnected, publicKey } = useSelector((state: RootState) => state.wallet)
@@ -68,7 +70,9 @@ export function Header() {
 
   const handleLogout = () => {
     dispatch(logoutUser())
+    dispatch(disconnectWallet())
     setUserMenuOpen(false)
+    router.push('/')
   }
 
   return (
@@ -210,7 +214,10 @@ export function Header() {
                   <span className="text-muted-foreground font-mono text-xs">{publicKey.slice(0, 6)}…{publicKey.slice(-4)}</span>
                 </div>
                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" 
-                  onClick={() => dispatch(disconnectWallet())} title="Disconnect Wallet">
+                  onClick={() => {
+                    dispatch(disconnectWallet());
+                    if (window.location.pathname.includes('dashboard')) router.push('/');
+                  }} title="Disconnect Wallet">
                   <LogOut className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -259,27 +266,35 @@ export function Header() {
             )}
             <div className="pt-3 space-y-2">
               {isUserActive ? (
-                <Link href="/seller-dashboard" onClick={() => setMobileOpen(false)} className="block w-full">
-                  <Button variant="outline" className="w-full rounded-2xl h-11">
-                    Dashboard
+                <>
+                  <Link href={isSupplier ? "/seller-dashboard" : "/buyer-dashboard"} onClick={() => setMobileOpen(false)} className="block w-full">
+                    <Button variant="outline" className="w-full rounded-2xl h-11">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Button 
+                    onClick={() => {
+                       handleLogout();
+                       setMobileOpen(false);
+                    }} 
+                    variant="ghost" 
+                    className="w-full rounded-2xl h-11 text-destructive hover:bg-destructive/10 flex items-center justify-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4" /> Sign Out
                   </Button>
-                </Link>
-              ) : !isConnected ? (
-                <Button onClick={() => { setAuthModalOpen(true); setMobileOpen(false) }}
-                  variant="outline" className="w-full rounded-2xl h-11">
-                  Supplier Login
-                </Button>
-              ) : null}
-              {isConnected ? (
-                <Button onClick={() => { dispatch(disconnectWallet()); setMobileOpen(false) }} variant="ghost" className="w-full rounded-2xl h-11 text-destructive hover:bg-destructive/10">
-                  Disconnect Wallet
-                </Button>
-              ) : !isAuthenticated ? (
-                <Button onClick={() => { setWalletSelectorOpen(true); setMobileOpen(false) }}
-                  className="w-full rounded-2xl h-11">
-                  Connect Wallet
-                </Button>
-              ) : null}
+                </>
+              ) : (
+                <>
+                  <Button onClick={() => { setAuthModalOpen(true); setMobileOpen(false) }}
+                    variant="outline" className="w-full rounded-2xl h-11">
+                    Supplier Login
+                  </Button>
+                  <Button onClick={() => { setWalletSelectorOpen(true); setMobileOpen(false) }}
+                    className="w-full rounded-2xl h-11">
+                    Connect Wallet
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         )}

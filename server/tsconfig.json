@@ -28,7 +28,7 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/__tests__/**", "src/scripts/**"],
+  "exclude": ["node_modules", "dist", "src/__tests__/**", "src/scripts/**", "src/generated/prisma"],
   "ts-node": {
     "esm": true,
     "experimentalSpecifierResolution": "node"

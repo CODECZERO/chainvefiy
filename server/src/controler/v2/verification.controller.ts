@@ -11,62 +11,59 @@ import { ApiError } from '../../util/apiError.util.js';
  * - Buyers: Verified per product if they have a DELIVERED/COMPLETED order for it.
  */
 export const getVerificationStatus = AsyncHandler(async (req: RequestK, res: Response) => {
-  const userId = req.user?.id;
-  if (!userId) throw new ApiError(401, 'Unauthorized');
+  let userId = req.user?.id;
+  const walletFromQuery = req.query.wallet as string;
+
+  if (!userId && !walletFromQuery) {
+    throw new ApiError(401, 'Unauthorized — User ID or Wallet required');
+  }
 
   const productId = req.query.productId as string;
 
   // 1. Fetch User and Roles
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      supplierProfile: {
-        select: {
-          id: true,
-          totalSales: true,
-          isVerified: true
-        }
-      }
-    }
-  });
+  const user = userId 
+    ? await prisma.user.findUnique({
+        where: { id: userId },
+        include: { supplierProfile: { select: { id: true, totalSales: true, isVerified: true } } }
+      })
+    : await prisma.user.findFirst({
+        where: { stellarWallet: walletFromQuery },
+        include: { supplierProfile: { select: { id: true, totalSales: true, isVerified: true } } }
+      });
 
   if (!user) throw new ApiError(404, 'User not found');
+  userId = user.id; // Correct the userId for subsequent queries if it was wallet-based
 
   let isVerified = false;
   let reason = 'Not verified';
 
-  // 2. Supplier Check (Global)
-  if (user.role === 'SUPPLIER' && user.supplierProfile) {
-    if (user.supplierProfile.totalSales > 5) {
-      isVerified = true;
-      reason = 'Supplier with > 5 successful sales';
-    } else {
-      reason = `Supplier needs ${5 - user.supplierProfile.totalSales} more sales for verification`;
-    }
+  // 2. Global Supplier Check (Verified if total sales > 5)
+  if (user.supplierProfile && user.supplierProfile.totalSales > 5) {
+    isVerified = true;
+    reason = 'Global Verified Supplier (> 5 sales)';
   } 
-  // 3. Buyer Check (Per Product)
-  else if (user.role === 'BUYER') {
-    if (!productId) {
-      isVerified = false;
-      reason = 'Buyer verification is product-specific. Please provide a productId.';
-    } else {
-      const order = await prisma.order.findFirst({
-        where: {
-          buyerId: userId,
-          productId: productId,
-          status: { in: ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED'] }
-        }
-      });
 
-      if (order) {
-        isVerified = true;
-        reason = 'Verified buyer for this specific product (active purchase found)';
-      } else {
-        isVerified = false;
-        reason = 'Not verified for this product. Must purchase it first.';
+  // 3. Purchase Verification Check (Per Product - available for ALL roles)
+  if (productId) {
+    const order = await prisma.order.findFirst({
+      where: {
+        buyerId: userId,
+        productId: productId,
+        status: { in: ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED'] }
       }
+    });
+
+    if (order) {
+      isVerified = true; // Overwrites global if global was false, keeps true if global was true
+      reason = order.status === 'COMPLETED' 
+        ? 'Verified buyer (Contract Completed)' 
+        : 'Verified buyer (Purchase in progress/delivered)';
+    } else if (!isVerified) {
+       reason = 'Not a verified buyer for this product. Purchase required.';
     }
-  } 
+  } else if (!isVerified) {
+    reason = 'Verification is either Global (Suppliers) or Per-Product (Buyers). Please provide productId for purchase check.';
+  }
 
   return res.json(new ApiResponse(200, {
     isVerified,

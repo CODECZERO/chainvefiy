@@ -32,31 +32,35 @@ export async function getExchangeRate(): Promise<number> {
   }
 }
 
-let cachedUSDCRates: Record<string, number> = {}
-let lastUSDCFetchTime = 0
+let cachedAllRates: any = null
+let lastAllFetchTime = 0
 
-export async function getUSDCRates(vsCurrencies: string[] = ["usd", "inr", "eur", "gbp", "ngn", "brl"]): Promise<Record<string, number>> {
+export async function getAllRates(): Promise<any> {
   const now = Date.now()
-  if (Object.keys(cachedUSDCRates).length > 0 && now - lastUSDCFetchTime < CACHE_DURATION) {
-    return cachedUSDCRates
+  if (cachedAllRates && now - lastAllFetchTime < CACHE_DURATION) {
+    return cachedAllRates
   }
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/rates/usdc`)
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/rates/all`)
     if (!response.ok) throw new Error("API failure")
     const data = await response.json()
     
-    if (data.data?.["usd-coin"]) {
-      cachedUSDCRates = data.data["usd-coin"]
-
-      lastUSDCFetchTime = now
-      return cachedUSDCRates
+    if (data.success && data.data) {
+      cachedAllRates = data.data
+      lastAllFetchTime = now
+      return cachedAllRates
     }
-    return cachedUSDCRates
+    return cachedAllRates
   } catch (error) {
-    console.warn("Failed to fetch USDC rates:", error)
-    return cachedUSDCRates
+    console.warn("Failed to fetch all rates:", error)
+    return cachedAllRates
   }
+}
+
+export async function getUSDCRates(): Promise<Record<string, number>> {
+  const all = await getAllRates()
+  return all?.USDC || { usd: 1.0, inr: FALLBACK_USDC_INR }
 }
 
 export function convertRsToXlm(amountInRs: number, rate: number): number {

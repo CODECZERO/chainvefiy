@@ -7,7 +7,7 @@ import type { RootState } from "@/lib/redux/store"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
-import { CheckCircle2, XCircle, Clock, MapPin, ExternalLink, MessageCircle, ShieldCheck, Package, Lightbulb, Coins, ArrowLeft, Star, QrCode, ArrowRight, Lock } from "lucide-react"
+import { CheckCircle2, XCircle, Clock, MapPin, ExternalLink, MessageCircle, ShieldCheck, Package, Lightbulb, Coins, ArrowLeft, Star, QrCode, ArrowRight, Lock, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { PaymentModal } from "@/components/payment-modal"
@@ -19,7 +19,7 @@ import { getBountiesByProduct } from "@/lib/api-service"
 import { useToast } from "@/components/ui/use-toast"
 import { getIPFSUrl } from "@/lib/image-utils"
 
-const PAYMENT_CURRENCIES = ["USDC", "XLM", "BTC", "ETH", "UPI"]
+const PAYMENT_CURRENCIES = ["USDC", "USDT", "XLM"]
 
 export default function ProductPage() {
   const { id } = useParams()
@@ -27,7 +27,6 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [selectedCurrency, setSelectedCurrency] = useState("USDC")
   const [showPayment, setShowPayment] = useState(false)
-  const { isConnected, publicKey } = useSelector((state: RootState) => state.wallet)
   const [activeImg, setActiveImg] = useState(0)
   const [showModal, setShowModal] = useState(false)
   const [showBountyModal, setShowBountyModal] = useState(false)
@@ -37,13 +36,23 @@ export default function ProductPage() {
   const [buyerProfile, setBuyerProfile] = useState<any>(null)
   const [bounties, setBounties] = useState<any[]>([])
   const [usdcInr, setUsdcInr] = useState(83.33)
+  const [allRates, setAllRates] = useState<any>(null)
   const [isVerifiedUserForThisProduct, setIsVerifiedUserForThisProduct] = useState(false)
+  const [hasVoted, setHasVoted] = useState(false)
+  const [isVoting, setIsVoting] = useState(false)
   const { isAuthenticated, user } = useSelector((s: RootState) => s.userAuth)
-  const isSupplier = isAuthenticated && user?.role === "SUPPLIER"
+  const { isConnected, publicKey } = useSelector((state: RootState) => state.wallet)
   const { toast } = useToast()
 
   useEffect(() => { loadProduct() }, [id])
-  useEffect(() => { getUSDCInrRate().then(setUsdcInr).catch(() => {}) }, [])
+  useEffect(() => { 
+    import('@/lib/exchange-rates').then(m => {
+      m.getAllRates().then(rates => {
+        setAllRates(rates)
+        if (rates?.USDC?.inr) setUsdcInr(rates.USDC.inr)
+      }).catch(() => {})
+    })
+  }, [])
 
   const loadProduct = async () => {
     try {
@@ -54,12 +63,25 @@ export default function ProductPage() {
       const bountyRes = await getBountiesByProduct(id as string)
       if (bountyRes.success) setBounties(bountyRes.data)
 
-      if (typeof window !== 'undefined' && localStorage.getItem('accessToken')) {
-        const vRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/verification/status?productId=${id}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-        })
-        const vData = await vRes.json()
-        if (vData.success) setIsVerifiedUserForThisProduct(vData.data.isVerified)
+      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+      const authHeader = token ? { 'Authorization': `Bearer ${token}` } : {}
+      const walletQuery = publicKey ? `&wallet=${publicKey}` : ''
+
+      const vRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/verification/status?productId=${id}${walletQuery}`, {
+        headers: authHeader
+      })
+      const vData = await vRes.json()
+      if (vData.success) {
+        setIsVerifiedUserForThisProduct(vData.data.isVerified)
+      }
+
+      // Check if user has already voted
+      const userId = user?.id || (vData.success ? vData.data.userId : null)
+      if (userId) {
+        const voteCheckRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`)
+        const productData = await voteCheckRes.json()
+        const userVote = productData.data.votes?.find((v: any) => v.userId === userId)
+        if (userVote) setHasVoted(true)
       }
     } catch (e) {
       console.error(e)
@@ -111,6 +133,33 @@ export default function ProductPage() {
       toast({ title: "Save Failed", description: e.message || "Failed to save profile", variant: "destructive" })
     }
   }
+  
+  const handleVote = async (voteType: 'REAL' | 'FAKE' | 'NEEDS_MORE_PROOF') => {
+    if (isVoting) return
+    setIsVoting(true)
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}/vote`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}` 
+        },
+        body: JSON.stringify({ userId: user?.id, stellarWallet: publicKey, voteType })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setHasVoted(true)
+        toast({ title: "Vote Cast Successfully", description: "Your contribution has been recorded on-chain." })
+        loadProduct()
+      } else {
+        toast({ title: "Voting Failed", description: data.message, variant: "destructive" })
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: "Network error occurred while voting.", variant: "destructive" })
+    } finally {
+      setIsVoting(false)
+    }
+  }
 
   if (loading) return (
     <div className="min-h-screen bg-background text-foreground">
@@ -154,6 +203,11 @@ export default function ProductPage() {
               {isVerified ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
               {isVerified ? "Community Verified" : "Pending Verification"}
             </span>
+            {isVerifiedUserForThisProduct && (
+              <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5" /> Verified Buyer
+              </span>
+            )}
             {product.category && (
               <span className="bg-accent text-muted-foreground border border-border px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider">
                 {product.category}
@@ -194,18 +248,6 @@ export default function ProductPage() {
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
                     <Package className="w-24 h-24 mb-4" />
                     <span className="text-lg font-medium">No Image Available</span>
-                  </div>
-                )}
-                {/* Embedded QR Overlay for Suppliers */}
-                {product.qrCodeUrl && user?.role === 'SUPPLIER' && (
-                  <div className="absolute bottom-6 right-6 p-3 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center gap-4 shadow-2xl">
-                    <div className="bg-white p-2 rounded-xl relative w-20 h-20">
-                      <Image src={product.qrCodeUrl} fill className="object-contain p-1" alt="QR" />
-                    </div>
-                    <div className="hidden sm:block pr-2">
-                      <div className="text-xs font-semibold text-white">Product QR</div>
-                      <div className="text-[10px] text-slate-400">Attach to packaging</div>
-                    </div>
                   </div>
                 )}
               </div>
@@ -273,6 +315,52 @@ export default function ProductPage() {
                   className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)]" 
                 />
               </div>
+
+              {/* ── Verified Buyer Governance ── */}
+              {isVerifiedUserForThisProduct && (
+                <div className="mt-8 pt-8 border-t border-white/[0.04]">
+                  <div className="flex items-center justify-between gap-4 mb-6">
+                    <div>
+                      <h4 className="text-lg font-bold text-white flex items-center gap-2">
+                        <MessageCircle className="w-5 h-5 text-blue-400" /> Buyer Governance
+                      </h4>
+                      <p className="text-sm text-slate-500">As a confirmed buyer, your assessment is critical to the trust economy.</p>
+                    </div>
+                    {hasVoted && (
+                      <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-4 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" /> Consensus Contribution Recorded
+                      </span>
+                    )}
+                  </div>
+
+                  {!hasVoted && (
+                    <div className="bg-[#0C0F17] border border-white/[0.04] rounded-2xl p-6">
+                      <p className="text-sm font-semibold text-slate-300 mb-4">Did you receive the product as described? Cast your verdict:</p>
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <Button 
+                          onClick={() => handleVote('REAL')}
+                          disabled={isVoting}
+                          className="h-14 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/30 font-bold transition-all"
+                        >
+                          {isVoting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                          It's Authentic
+                        </Button>
+                        <Button 
+                          onClick={() => handleVote('FAKE')}
+                          disabled={isVoting}
+                          className="h-14 rounded-2xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 font-bold transition-all"
+                        >
+                          {isVoting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <XCircle className="w-5 h-5 mr-2" />}
+                          It's Counterfeit
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-4 text-center">
+                        Note: Voting rewards you with 1 Trust Token and contributes to the product's final verification status.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 4. Active Bounties Loop */}
@@ -360,48 +448,60 @@ export default function ProductPage() {
 
               {/* Checkout Box */}
               <div className="premium-card rounded-[2rem] p-8 border border-white/[0.08] shadow-2xl relative overflow-hidden">
-                <div className="absolute -top-24 -right-24 w-48 h-48 bg-orange-500/20 blur-[60px] rounded-full pointer-events-none" />
+                <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 blur-[60px] rounded-full pointer-events-none" />
                 
                 <div className="mb-8">
-                  <div className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-2">Total Price</div>
-                  <div className="text-5xl font-bold font-mono tracking-tighter text-white">
-                    ₹{Number(product.priceInr || 0).toLocaleString()}
-                  </div>
-                  <div className="text-base text-[#2775CA] font-mono font-bold mt-2 flex items-center gap-2">
-                    ≈ {(selectedCurrency === "USDC" ? (Number(usdcPrice) || 0) : (Number(product.priceInr || 0) / 10)).toFixed(2)} {selectedCurrency}
-                    <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/20 font-sans tracking-normal">Escrow Value</span>
-                  </div>
-                </div>
+                  <div className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Market Evaluation</div>
+                  <div className="flex flex-col gap-6">
+                    <div className="flex items-center justify-between bg-[#0C0F17]/50 border border-white/[0.04] p-5 rounded-3xl shadow-inner">
+                      <div>
+                        <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">Local Price</div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-white tracking-tighter">₹{Number(product.priceInr || 0).toLocaleString()}</span>
+                          <span className="text-slate-500 font-bold text-xs uppercase">INR</span>
+                        </div>
+                      </div>
+                      <div className="h-10 w-px bg-white/[0.06]" />
+                      <div className="text-right">
+                        <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">Settlement Asset</div>
+                        <div className="text-2xl font-black text-blue-400 font-mono tracking-tight">
+                          {(() => {
+                            const price = Number(product.priceInr || 0)
+                            if (selectedCurrency === 'USDC') return (price / (allRates?.USDC?.inr || 83.33)).toFixed(2)
+                            if (selectedCurrency === 'USDT') return (price / (allRates?.USDT?.inr || 83.33)).toFixed(2)
+                            if (selectedCurrency === 'XLM') return (price / (allRates?.XLM?.inr || 28.6)).toFixed(1)
+                            return price.toLocaleString()
+                          })()}
+                          <span className="ml-1.5 text-xs text-blue-500/50 uppercase">{selectedCurrency}</span>
+                        </div>
+                      </div>
+                    </div>
 
-                {/* Currency Selector */}
-                <div className="mb-8">
-                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Select Payment</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {PAYMENT_CURRENCIES.map((c) => (
-                      <button key={c} onClick={() => setSelectedCurrency(c)}
-                        className={`flex items-center justify-center p-3 rounded-xl border-2 text-sm font-bold transition-all ${
-                          selectedCurrency === c
-                            ? "border-primary bg-primary/10 text-primary shadow-[0_0_15px_rgba(232,119,46,0.15)]"
-                            : "border-[#1F2D40] bg-[#0C0F17] text-slate-400 hover:border-slate-600 hover:text-white"
-                        }`}
-                      >
-                        {c}
-                      </button>
-                    ))}
+                    <div className="flex items-center justify-center gap-2 bg-[#0C0F17]/30 p-2 rounded-2xl border border-white/[0.02]">
+                      {PAYMENT_CURRENCIES.map(c => (
+                        <button 
+                          key={c}
+                          onClick={() => setSelectedCurrency(c)}
+                          className={`flex-1 text-[10px] font-black py-2.5 rounded-xl transition-all border ${selectedCurrency === c ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'bg-white/5 border-white/[0.05] text-slate-500 hover:text-slate-300'}`}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {/* Escrow Notice */}
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-8 flex gap-3">
                   <Lock className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                  <div className="text-sm text-emerald-100/70 leading-relaxed">
-                    Payment is secured in <span className="text-emerald-400 font-semibold">Stellar Soroban escrow</span>. 
-                    Funds are released only when you confirm successful delivery.
+                  <div className="text-xs text-emerald-100/70 leading-relaxed font-medium">
+                    Payment secured in <span className="text-emerald-400 font-bold">Stellar Soroban Escrow</span>. 
+                    Funds remain locked until you verify the product on-chain.
                   </div>
                 </div>
 
-                <Button onClick={checkProfileAndBuy} className="w-full rounded-2xl h-14 text-lg font-bold bg-white text-black hover:bg-slate-200 shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:shadow-[0_0_40px_rgba(255,255,255,0.25)] transition-all">
-                  Checkout Securely <ArrowRight className="w-5 h-5 ml-2" />
+                <Button onClick={checkProfileAndBuy} className="w-full rounded-2xl h-14 text-lg font-bold bg-white text-black hover:bg-slate-200 shadow-[0_0_30px_rgba(255,255,255,0.1)] transition-all transform active:scale-95">
+                  Secure This Item <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </div>
 

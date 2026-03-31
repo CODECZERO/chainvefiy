@@ -7,7 +7,7 @@ import {
     TransactionBuilder,
     Networks
 } from '@stellar/stellar-sdk';
-import { server, STACK_ADMIN_SECRET } from './smartContract.handler.stellar.js';
+import { server, horizonServer, STACK_ADMIN_SECRET, adminSequenceManager } from './smartContract.handler.stellar.js';
 import logger from '../../util/logger.js';
 
 const TREASURY_CONTRACT_ID = process.env.TREASURY_CONTRACT_ID || '';
@@ -26,22 +26,17 @@ export class TreasuryService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'initialize',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('initialize',
                 new Address(adminKeypair.publicKey()).toScVal(),
                 nativeToScVal(multiSigThreshold, { type: 'i128' }),
                 nativeToScVal(requiredApprovals, { type: 'u32' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[Treasury] Initialized: ${result.hash}`);
         return result;
@@ -57,21 +52,16 @@ export class TreasuryService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'add_signer',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('add_signer',
                 new Address(adminKeypair.publicKey()).toScVal(),
                 new Address(signerAddress).toScVal()
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[Treasury] Signer added: ${signerAddress} - ${result.hash}`);
         return result;
@@ -87,22 +77,17 @@ export class TreasuryService {
         const dividerKeypair = Keypair.fromSecret(dividerKey);
         const sourceAccount = await this.server.getAccount(dividerKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'deposit',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('deposit',
                 new Address(dividerKeypair.publicKey()).toScVal(),
                 nativeToScVal(amount, { type: 'i128' }),
                 nativeToScVal(purpose, { type: 'string' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(dividerKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(dividerKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[Treasury] Deposited ${amount} - ${result.hash}`);
         return result;
@@ -118,22 +103,17 @@ export class TreasuryService {
         const dividerKeypair = Keypair.fromSecret(dividerKey);
         const sourceAccount = await this.server.getAccount(dividerKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'withdraw',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('withdraw',
                 new Address(dividerKeypair.publicKey()).toScVal(),
                 nativeToScVal(amount, { type: 'i128' }),
                 nativeToScVal(purpose, { type: 'string' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(dividerKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(dividerKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[Treasury] Withdrawal requested: ${amount} - ${result.hash}`);
         return result;
@@ -149,21 +129,16 @@ export class TreasuryService {
         const signerKeypair = Keypair.fromSecret(signerKey);
         const sourceAccount = await this.server.getAccount(signerKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'approve_withdrawal',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('approve_withdrawal',
                 new Address(signerKeypair.publicKey()).toScVal(),
                 nativeToScVal(requestId, { type: 'u32' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(signerKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(signerKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[Treasury] Withdrawal approved: request ${requestId} - ${result.hash}`);
         return result;
@@ -179,22 +154,17 @@ export class TreasuryService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'set_budget',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('set_budget',
                 new Address(adminKeypair.publicKey()).toScVal(),
                 new Address(divisionAddress).toScVal(),
                 nativeToScVal(maxAmount, { type: 'i128' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[Treasury] Budget set for ${divisionAddress}: ${maxAmount} - ${result.hash}`);
         return result;

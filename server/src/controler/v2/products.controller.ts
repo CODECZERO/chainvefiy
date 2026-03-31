@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { ApiResponse } from '../../util/apiResponse.util.js';
 import { analyzeProductForFraud } from '../../services/nvidia/nim.service.js';
-import QRCode from 'qrcode';
 import { notifySupplier } from '../../services/whatsapp/whatsapp.service.js';
 import { cacheGet, cacheSet, cacheInvalidate, cacheDel, buildCacheKey } from '../../lib/redis.js';
 import { getUSDCtoINRRate } from '../../util/exchangeRate.util.js';
@@ -115,41 +114,10 @@ export const createProduct = async (req: any, res: Response) => {
     },
   });
 
-  const appUrl = process.env.APP_URL || 'http://localhost:3000';
-  const productUrl = `${appUrl}/product/${product.id}`;
-  const qrDataUrl = await QRCode.toDataURL(productUrl, { 
-    width: 256,
-    margin: 2,
-    color: {
-      dark: '#000000',
-      light: '#ffffff'
-    }
-  });
-  await prisma.product.update({
-    where: { id: product.id },
-    data: { qrCodeUrl: qrDataUrl }
-  });
-
   await cacheInvalidate('products:*');
-
-  return res.status(201).json(new ApiResponse(201, { ...product, qrCodeUrl: qrDataUrl }, 'Product created'));
+  return res.status(201).json(new ApiResponse(201, product, 'Product created'));
 };
 
-export const getProductQRCode = async (req: Request, res: Response) => {
-  const id = String((req as any).params?.id ?? req.params.id);
-  const product = await prisma.product.findUnique({ where: { id } });
-  if (!product || !product.qrCodeUrl) {
-    return res.status(404).json(new ApiResponse(404, null, 'QR code not found'));
-  }
-  const base64Data = product.qrCodeUrl.replace(/^data:image\/png;base64,/, "");
-  const img = Buffer.from(base64Data, 'base64');
-  res.writeHead(200, {
-    'Content-Type': 'image/png',
-    'Content-Length': img.length
-  });
-  res.end(img);
-  return;
-};
 
 export const addStageUpdate = async (req: any, res: Response) => {
   const { stageName, note, photoUrl, videoUrl, gpsLat, gpsLng, gpsAddress } = req.body;
@@ -184,7 +152,7 @@ export const voteOnProduct = async (req: any, res: Response) => {
   if (!productCheck) return res.status(404).json(new ApiResponse(404, null, 'Product not found'));
 
   // ─── Verification Guard ───
-  // Look up the user by userId or stellarWallet
+  let isVerifiedBuyer = false;
   const voter = userId 
     ? await prisma.user.findUnique({ where: { id: userId }, include: { supplierProfile: true } })
     : stellarWallet
@@ -193,9 +161,8 @@ export const voteOnProduct = async (req: any, res: Response) => {
 
   if (voter) {
     if (voter.role === 'SUPPLIER') {
-      // Suppliers can vote on any product — no restriction
+      // Suppliers can always vote
     } else {
-      // Buyers: must have a DELIVERED/COMPLETED order for this specific product
       const buyerOrder = await prisma.order.findFirst({
         where: {
           productId: id,
@@ -206,25 +173,32 @@ export const voteOnProduct = async (req: any, res: Response) => {
       if (!buyerOrder) {
         return res.status(403).json(new ApiResponse(403, null, 'You must have purchased this product to vote.'));
       }
-    }
-  } else if (stellarWallet) {
-    // Wallet-only user: find their user record, then check orders
-    const walletUser = await prisma.user.findFirst({ where: { stellarWallet } });
-    if (!walletUser) {
-      return res.status(403).json(new ApiResponse(403, null, 'You must have purchased and received this product to vote.'));
-    }
-    const walletOrder = await prisma.order.findFirst({
-      where: { buyerId: walletUser.id, productId: id, status: { in: ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED'] } }
-    });
-    if (!walletOrder) {
-      return res.status(403).json(new ApiResponse(403, null, 'You must have purchased this product to vote.'));
+      isVerifiedBuyer = true;
     }
   } else {
-    return res.status(401).json(new ApiResponse(401, null, 'User identification required to vote.'));
+    // If no user found, but wallet provided, check for active orders associated with this wallet address
+    if (stellarWallet) {
+        const anonymousOrder = await prisma.order.findFirst({
+            where: {
+                productId: id,
+                status: { in: ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED'] },
+                buyer: {
+                    stellarWallet: stellarWallet
+                }
+            }
+        });
+        if (!anonymousOrder) {
+            return res.status(403).json(new ApiResponse(403, null, 'No matching purchase found for this wallet.'));
+        }
+        isVerifiedBuyer = true;
+    } else {
+        return res.status(401).json(new ApiResponse(401, null, 'User identification (User ID or Wallet) required to vote.'));
+    }
   }
 
-  const effectiveUserId = userId || voter?.id;
-  if (!effectiveUserId) return res.status(401).json(new ApiResponse(401, null, 'User not found'));
+  // Determine effective user
+  const effectiveUserId = voter?.id || (stellarWallet ? (await prisma.user.findFirst({ where: { stellarWallet } }))?.id : null);
+  if (!effectiveUserId) return res.status(401).json(new ApiResponse(401, null, 'User account not found for this identifier.'));
 
   const existing = await prisma.vote.findUnique({
     where: { productId_userId: { productId: id, userId: effectiveUserId } },
@@ -232,9 +206,12 @@ export const voteOnProduct = async (req: any, res: Response) => {
   if (existing) return res.status(409).json(new ApiResponse(409, null, 'Already voted'));
 
   let requiredStake = 0;
-  const priceInr = Number(productCheck.priceInr);
-  if (priceInr >= 20000) requiredStake = 50;
-  else if (priceInr >= 5000) requiredStake = 10;
+  // Waive stake for verified buyers of this specific product
+  if (!isVerifiedBuyer) {
+    const priceInr = Number(productCheck.priceInr);
+    if (priceInr >= 20000) requiredStake = 50;
+    else if (priceInr >= 5000) requiredStake = 10;
+  }
 
   if (requiredStake > 0) {
     const userLedger = await prisma.trustTokenLedger.aggregate({

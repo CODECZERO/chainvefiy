@@ -58,15 +58,24 @@ export const loginUser = createAsyncThunk(
 )
 
 export const logoutUser = createAsyncThunk('userAuth/logout', async () => {
-  await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/logout`, {
-    method: 'POST',
-    credentials: 'include',
-  })
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch (e) { console.error('Logout request failed', e) }
   
-  // Trigger sync for other tabs
   if (typeof window !== 'undefined') {
+    // Clear tokens
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('auth_sync')
     localStorage.setItem('auth_logout', Date.now().toString())
+
+    // Expire cookies
+    const cookieOptions = "path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC";
+    document.cookie = `accessToken=; ${cookieOptions}`;
+    document.cookie = `refreshToken=; ${cookieOptions}`;
   }
 })
 

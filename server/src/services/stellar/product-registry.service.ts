@@ -7,7 +7,7 @@ import {
     TransactionBuilder,
     Networks
 } from '@stellar/stellar-sdk';
-import { server, STACK_ADMIN_SECRET } from './smartContract.handler.stellar.js';
+import { server, horizonServer, STACK_ADMIN_SECRET, adminSequenceManager } from './smartContract.handler.stellar.js';
 import logger from '../../util/logger.js';
 
 const PRODUCT_REGISTRY_CONTRACT_ID = process.env.PRODUCT_REGISTRY_CONTRACT_ID || '';
@@ -26,20 +26,13 @@ export class ProductRegistryService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'initialize',
-                new Address(adminKeypair.publicKey()).toScVal()
-            ))
-            .setTimeout(30)
-            .build();
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('initialize', new Address(adminKeypair.publicKey()).toScVal())
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[ProductRegistry] Initialized: ${result.hash}`);
         return result;
@@ -55,21 +48,16 @@ export class ProductRegistryService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'set_badge_contract',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('set_badge_contract', 
                 new Address(adminKeypair.publicKey()).toScVal(),
                 new Address(badgeContractAddress).toScVal()
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[ProductRegistry] Badge contract set: ${result.hash}`);
         return result;
@@ -85,21 +73,16 @@ export class ProductRegistryService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'set_token_contract',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('set_token_contract',
                 new Address(adminKeypair.publicKey()).toScVal(),
                 new Address(tokenContractAddress).toScVal()
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[ProductRegistry] Token contract set: ${result.hash}`);
         return result;

@@ -1,43 +1,28 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { TrendingUp, Globe } from "lucide-react"
 import { getUSDCRates } from "@/lib/exchange-rates"
- 
- const CURRENCIES = [
-   { code: "USD", symbol: "$" },
-   { code: "INR", symbol: "₹" },
-   { code: "EUR", symbol: "€" },
-   { code: "GBP", symbol: "£" },
-   { code: "NGN", symbol: "₦" },
-   { code: "BRL", symbol: "R$" },
- ]
- 
- export function USDCPriceTicker() {
-   const [rates, setRates] = useState<Record<string, number>>({})
-   const [loading, setLoading] = useState(true)
- 
-   useEffect(() => {
-     const fetchPrices = async () => {
-       try {
-         const data = await getUSDCRates(CURRENCIES.map(c => c.code.toLowerCase()))
-         if (data && Object.keys(data).length > 0) {
-           setRates(data)
-         }
-       } catch (error) {
-         console.error("Failed to fetch USDC prices", error)
-       } finally {
-         setLoading(false)
-       }
-     }
- 
-     fetchPrices()
-     const interval = setInterval(fetchPrices, 60000) // Update every minute
-     return () => clearInterval(interval)
-   }, [])
+
+const CURRENCIES = [
+  { code: "USD", symbol: "$" },
+  { code: "INR", symbol: "₹" },
+  { code: "EUR", symbol: "€" },
+  { code: "GBP", symbol: "£" },
+  { code: "NGN", symbol: "₦" },
+  { code: "BRL", symbol: "R$" },
+]
+
+export function USDCPriceTicker() {
+  const { data: rates = {}, isLoading } = useQuery({
+    queryKey: ["usdc-rates"],
+    queryFn: () => getUSDCRates(),
+    refetchInterval: 60000,
+    staleTime: 60000,
+  })
 
 
-  if (loading && Object.keys(rates).length === 0) {
+  if (isLoading && Object.keys(rates).length === 0) {
     return (
       <div className="flex gap-4 animate-pulse">
         {[1, 2, 3].map(i => (

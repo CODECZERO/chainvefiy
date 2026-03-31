@@ -16,7 +16,6 @@ export const STACK_ADMIN_SECRET = (() => {
     return kp.secret();
   }
   try {
-    // Validate format early so the app can boot with a fallback.
     StellarSdk.Keypair.fromSecret(secret);
     return secret;
   } catch (e: any) {
@@ -25,6 +24,72 @@ export const STACK_ADMIN_SECRET = (() => {
     return kp.secret();
   }
 })();
+
+/**
+ * AdminSequenceManager handles the sequence number for the STACK_ADMIN account
+ * globally to prevent txBadSeq errors during parallel operations.
+ */
+class AdminSequenceManager {
+  private sequence: bigint | null = null;
+  private adminKeypair = StellarSdk.Keypair.fromSecret(STACK_ADMIN_SECRET);
+  private lastFetch = 0;
+  private isRefreshing = false;
+
+  async getSequence(): Promise<string> {
+    const now = Date.now();
+    // Refresh if null or more than 5 minutes old
+    if (!this.sequence || (now - this.lastFetch > 5 * 60 * 1000)) {
+      await this.refresh();
+    }
+    
+    const current = this.sequence!;
+    this.sequence = current + 1n;
+    return current.toString();
+  }
+
+  async refresh() {
+    if (this.isRefreshing) {
+      while (this.isRefreshing) await new Promise(r => setTimeout(r, 100));
+      return;
+    }
+    
+    this.isRefreshing = true;
+    try {
+      logger.info("[Stellar] Refreshing Admin Sequence from Horizon (most reliable)...");
+      const account = await horizonServer.loadAccount(this.adminKeypair.publicKey());
+      this.sequence = BigInt(account.sequence);
+      this.lastFetch = Date.now();
+    } catch (error) {
+      logger.error("[Stellar] Failed to refresh Admin Sequence:", error);
+      throw error;
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  /**
+   * Helper to build a signed transaction for the admin account with proper sequence management.
+   */
+  async buildTransaction(ops: any[], memo?: StellarSdk.Memo): Promise<StellarSdk.Transaction> {
+    const seq = await this.getSequence();
+    const builder = new StellarSdk.TransactionBuilder(
+      new StellarSdk.Account(this.adminKeypair.publicKey(), seq),
+      {
+        fee: StellarSdk.BASE_FEE,
+        networkPassphrase: StellarSdk.Networks.TESTNET,
+      }
+    );
+
+    ops.forEach(op => builder.addOperation(op));
+    if (memo) builder.addMemo(memo);
+    
+    const tx = builder.setTimeout(30).build();
+    tx.sign(this.adminKeypair);
+    return tx;
+  }
+}
+
+export const adminSequenceManager = new AdminSequenceManager();
 
 interface UserDataWallet {
   privateKey: string;

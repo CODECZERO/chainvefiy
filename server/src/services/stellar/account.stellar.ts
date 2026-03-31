@@ -1,5 +1,6 @@
 import { STELLAR_CONFIG, createKeypair } from './config.stellar.js';
-import { TransactionBuilder, Operation, Keypair, Account, xdr } from '@stellar/stellar-sdk';
+import { Operation, Keypair, xdr } from '@stellar/stellar-sdk';
+import { adminSequenceManager, horizonServer } from './smartContract.handler.stellar.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -37,36 +38,22 @@ export const createAccount = async () => {
     const newPair = createKeypair();
     console.log('New account public key:', newPair.publicKey());
 
-    // Get the base fee
-    const baseFee = await STELLAR_CONFIG.server.fetchBaseFee();
-    console.log('Base fee:', baseFee);
-
-    // Use the account directly without complex sequence handling
-    const funderAccount = new Account(funderKey.publicKey(), funderAccountDetail.sequence);
-    console.log('Using account sequence:', funderAccountDetail.sequence);
-
-    const tx = new TransactionBuilder(funderAccount, {
-      fee: baseFee.toString(),
-      networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-    })
-      .addOperation(
-        Operation.createAccount({
-          destination: newPair.publicKey(),
-          startingBalance: '2', // Set to 2 XLM
-        })
-      )
-      .setTimeout(30)
-      .build();
+    // Build and sign transaction with globally synchronized helper
+    const tx = await adminSequenceManager.buildTransaction([
+      Operation.createAccount({
+        destination: newPair.publicKey(),
+        startingBalance: '2', // Set to 2 XLM
+      })
+    ]);
 
     tx.sign(funderKey);
     console.log('Transaction built and signed');
 
     try {
-      // Try regular submitTransaction first (more reliable)
-      const result = await STELLAR_CONFIG.server.submitTransaction(tx);
+      const result = await horizonServer.submitTransaction(tx);
       console.log('Transaction result:', result);
 
-      if (result.successful) {
+      if ((result as any).successful || result.hash) {
         console.log(`Successfully created Stellar account: ${newPair.publicKey()}`);
         return {
           publicKey: newPair.publicKey(),

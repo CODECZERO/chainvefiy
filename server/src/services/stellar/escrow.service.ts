@@ -12,11 +12,17 @@ import {
     Operation,
     Account
 } from '@stellar/stellar-sdk';
-import { server, horizonServer, STACK_ADMIN_SECRET } from './smartContract.handler.stellar.js';
+import { server, horizonServer, STACK_ADMIN_SECRET, adminSequenceManager } from './smartContract.handler.stellar.js';
+import { ApiError } from '../../util/apiError.util.js';
 
-// This will be set after deployment
 const ESCROW_CONTRACT_ID = process.env.ESCROW_CONTRACT_ID || '';
-const USDC_ISSUER = process.env.USDC_ISSUER || '';
+const USDC_ISSUER = process.env.USDC_ISSUER || 'GBBD67VEE7LCOW763YF6XOS67D6FEP6W6DIP7CUEI2Z2Z2BD3C3C3C3C';
+const USDT_ISSUER = process.env.USDT_ISSUER || 'GC5LLE3Z765S4ZWVGBO6W4UYFUXZ6PFYI5S6W6S6W6S6W6S6W6S6W6S6'; // Mock or real USDT issuer
+
+const ASSET_CONFIG: Record<string, { code: string; issuer: string }> = {
+    USDC: { code: 'USDC', issuer: USDC_ISSUER },
+    USDT: { code: 'USDT', issuer: USDT_ISSUER },
+};
 
 export class EscrowService {
     private server = server;
@@ -44,21 +50,25 @@ export class EscrowService {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
-        
+
         // Load accounts
         const horizonAccount = await horizonServer.loadAccount(buyerPublicKey);
-        const sourceAccount = await this.server.getAccount(buyerPublicKey);
-
-        if (sourceAccount.sequenceNumber() === "0") {
-            throw new Error(`Account ${buyerPublicKey} is not initialized on the Stellar Testnet. Please fund it via Friendbot.`);
-        }
+        
+        // Use the sequence account object from Horizon which is most up-to-date
+        const sourceAccount = new Account(buyerPublicKey, horizonAccount.sequence);
 
         // Assets
-        const isXlm = asset === 'XLM';
-        if (!isXlm && !USDC_ISSUER) throw new Error('USDC_ISSUER not configured');
-        const stellarAsset = isXlm 
-            ? Asset.native() 
-            : new Asset('USDC', USDC_ISSUER);
+        const assetCode = (asset || 'USDC').toUpperCase();
+        const isXlm = assetCode === 'XLM';
+        
+        let stellarAsset: Asset;
+        if (isXlm) {
+            stellarAsset = Asset.native();
+        } else {
+            const config = ASSET_CONFIG[assetCode];
+            if (!config) throw new Error(`Unsupported asset: ${assetCode}. Only USDC, USDT, XLM supported.`);
+            stellarAsset = new Asset(config.code, config.issuer);
+        }
 
         const directAmount = (totalAmount - lockedAmount).toFixed(7);
         const lockedAmountStr = lockedAmount.toFixed(7);
@@ -70,13 +80,13 @@ export class EscrowService {
             networkPassphrase: Networks.TESTNET
         });
 
-        // 1. Trustline (USDC only)
+        // 1. Trustline (Non-Native only)
         if (!isXlm) {
             const hasTrustline = (horizonAccount.balances as any[]).some(
-                (b: any) => b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER
+                (b: any) => b.asset_code === stellarAsset.code && b.asset_issuer === stellarAsset.issuer
             );
             if (!hasTrustline) {
-                console.log("[STELLAR] Adding ChangeTrust operation");
+                console.log(`[STELLAR] Adding ChangeTrust operation for ${stellarAsset.code}`);
                 builder.addOperation(Operation.changeTrust({ asset: stellarAsset }));
             }
         }
@@ -114,7 +124,7 @@ export class EscrowService {
 
             console.log("[STELLAR] Adding Soroban Contract Call operation");
             builder.addOperation(simulationOp);
-            
+
             const tx = builder.setTimeout(180).build();
             console.log(`[STELLAR] Simulating Unified TX. Ops: ${tx.operations.length}`);
 
@@ -122,16 +132,16 @@ export class EscrowService {
             console.log(`[STELLAR] Simulation successful. Fee: ${preparedTx.fee}`);
 
             const xdr = preparedTx.toEnvelope().toXDR('base64');
-            console.log(`[STELLAR] Unified TX built. Seq: ${(preparedTx as any).sequence}, XDR length: ${xdr.length}`);
-            
+            console.log(`[STELLAR] Unified TX built. Buyer: ${buyerPublicKey}, Seq: ${sourceAccount.sequenceNumber()}, XDR length: ${xdr.length}`);
+
             return { xdr, classicFallback: false };
-            
+
         } catch (error: any) {
             // Graceful degradation: If Soroban contract call fails (e.g. TTL expired),
             // fallback to returning just the classic payments as a standard TX
             console.warn(`[STELLAR] ⚠️  Soroban escrow simulation failed. Falling back to Classic-only.`);
             console.warn(`[STELLAR]    Error: ${error?.message || error}`);
-            
+
             // Rebuild without the Soroban Op since the previous builder holds the failed state
             const fallbackBuilder = new TransactionBuilder(sourceAccount, {
                 fee: "1000",
@@ -145,7 +155,7 @@ export class EscrowService {
                 fallbackBuilder.addOperation(Operation.payment({ destination: supplierPublicKey, asset: stellarAsset, amount: directAmount }));
             }
             fallbackBuilder.addOperation(Operation.payment({ destination: vaultPublicKey, asset: stellarAsset, amount: lockedAmountStr }));
-            
+
             const fallbackTx = fallbackBuilder.setTimeout(180).build();
             return { xdr: fallbackTx.toEnvelope().toXDR('base64'), classicFallback: true };
         }
@@ -157,19 +167,26 @@ export class EscrowService {
     async submitTransaction(signedXdr: string) {
         const tx = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
         const txHash = tx.hash().toString('hex');
-        
+
         console.log(`[STELLAR] Submitting transaction ${txHash} to RPC...`);
-        const result = await this.server.sendTransaction(tx);
-        
+        let result = await this.server.sendTransaction(tx);
+
         if (result.status === 'ERROR') {
-            console.error(`[STELLAR] RPC Submission Error:`, JSON.stringify(result, null, 2));
+            const errorResult: any = result.errorResult;
+            const resultName = errorResult?.result?._switch?.name;
+            
+            console.error(`[STELLAR] RPC Submission Error: ${resultName}`, JSON.stringify(result, null, 2));
+            
+            if (resultName === 'txBadSeq') {
+                throw new ApiError(400, "Your transaction sequence is out of sync. Please refresh the page and try again.");
+            }
             throw new Error(`Transaction failed: ${JSON.stringify(result.errorResult || result)}`);
         }
 
         // We return immediately with the hash, but the caller (controller) 
         // will wait or we can provide a status check endpoint.
         // For simple backgrounding, we'll await confirmation here but the frontend call will be one-shot.
-        
+
         let status: any = result.status;
         let polls = 0;
         while ((status === 'PENDING' || status === 'NOT_FOUND') && polls < 30) {
@@ -303,56 +320,60 @@ export class EscrowService {
     /**
      * Release: Admin/Server calls this after verification.
      */
-    async releaseEscrow(taskId: string) {
+    async releaseEscrow(taskId: string): Promise<any> {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
         const adminKeypair = this.getAdminKeypair();
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'release',
-                nativeToScVal(taskId, { type: 'string' })
-            ))
-            .setTimeout(30)
-            .build();
+        // 3. Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('release', nativeToScVal(taskId, { type: 'string' }))
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
-
-        return result;
+        tx.sign(adminKeypair);
+        try {
+            const result = await this.server.sendTransaction(tx);
+            if (result.status === 'ERROR' && (result as any).errorResult?.result?._switch?.name === 'txBadSeq') {
+                await adminSequenceManager.refresh();
+                // Sequence error fixed by refresh; next attempt will use fresh one
+                throw new Error("Stellar sequence out of sync. Please retry in a moment.");
+            }
+            return result;
+        } catch (error) {
+            console.error('[STELLAR] Release error:', error);
+            throw error;
+        }
     }
 
     /**
      * Dispute: Admin/Server calls this if scam detected.
      */
-    async disputeEscrow(taskId: string) {
+    async disputeEscrow(taskId: string): Promise<any> {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
         const adminKeypair = this.getAdminKeypair();
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'dispute',
-                nativeToScVal(taskId, { type: 'string' })
-            ))
-            .setTimeout(30)
-            .build();
+        // 3. Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('dispute', nativeToScVal(taskId, { type: 'string' }))
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
-        return result;
+        tx.sign(adminKeypair);
+        try {
+            const result = await this.server.sendTransaction(tx);
+            if (result.status === 'ERROR' && (result as any).errorResult?.result?._switch?.name === 'txBadSeq') {
+                await adminSequenceManager.refresh();
+                throw new Error("Stellar sequence out of sync. Please retry.");
+            }
+            return result;
+        } catch (error) {
+            console.error('[STELLAR] Dispute error:', error);
+            throw error;
+        }
     }
 
     /**
@@ -360,30 +381,29 @@ export class EscrowService {
      */
     async releaseDispatchPartialPayment(supplierPublicKey: string, amountUsdc: number) {
         if (!USDC_ISSUER) throw new Error('USDC_ISSUER not configured');
-        
+
         const adminKeypair = this.getAdminKeypair();
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
-        
+
         const usdcAsset = new Asset('USDC', USDC_ISSUER);
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(Operation.payment({
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            Operation.payment({
                 destination: supplierPublicKey,
                 asset: usdcAsset,
                 amount: amountUsdc.toFixed(7)
-            }))
-            .setTimeout(180)
-            .build();
+            })
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        
+        tx.sign(adminKeypair);
+
         try {
-            const result = await this.server.sendTransaction(preparedTx);
+            const result = await this.server.sendTransaction(tx);
             if (result.status === 'ERROR') {
+                if ((result as any).errorResult?.result?._switch?.name === 'txBadSeq') {
+                    await adminSequenceManager.refresh();
+                }
                 throw new Error(`Dispatch partial release failed: ${JSON.stringify(result.errorResult || result)}`);
             }
             return result.hash;
@@ -396,29 +416,30 @@ export class EscrowService {
     /**
      * Refund: Admin/Server calls this after dispute lock period expires.
      */
-    async refundEscrow(taskId: string) {
+    async refundEscrow(taskId: string): Promise<any> {
         if (!ESCROW_CONTRACT_ID) throw new Error('ESCROW_CONTRACT_ID not configured');
 
         const contract = new Contract(ESCROW_CONTRACT_ID);
         const adminKeypair = this.getAdminKeypair();
-        const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'refund',
-                nativeToScVal(taskId, { type: 'string' })
-            ))
-            .setTimeout(30)
-            .build();
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('refund', nativeToScVal(taskId, { type: 'string' }))
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
 
-        return result;
+        try {
+            const result = await this.server.sendTransaction(tx);
+            if (result.status === 'ERROR' && (result as any).errorResult?.result?._switch?.name === 'txBadSeq') {
+                await adminSequenceManager.refresh();
+                throw new Error("Stellar sequence out of sync. Please retry.");
+            }
+            return result;
+        } catch (error) {
+            console.error('[STELLAR] Refund error:', error);
+            throw error;
+        }
     }
 
     /**

@@ -18,7 +18,7 @@ export async function getUSDExchangeRates(): Promise<Record<string, number>> {
   try {
     // Fetch from CoinGecko API
     const response = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=stellar,bitcoin,ethereum,usd-coin&vs_currencies=usd,inr',
+      'https://api.coingecko.com/api/v3/simple/price?ids=stellar,tether,usd-coin&vs_currencies=usd,inr',
       {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -36,9 +36,9 @@ export async function getUSDExchangeRates(): Promise<Record<string, number>> {
     const newRates: Record<string, number> = {
       USDC: data['usd-coin']?.usd || 1.0,
       USDC_INR: data['usd-coin']?.inr || 83.33,
+      USDT: data.tether?.usd || 1.0,
+      USDT_INR: data.tether?.inr || 83.33,
       XLM: data.stellar?.usd || 0.12,
-      BTC: data.bitcoin?.usd || 65000,
-      ETH: data.ethereum?.usd || 3200,
       INR: 1 / (data.stellar?.inr / data.stellar?.usd || 83.33), // 1 INR in USD
       XLM_INR: data.stellar?.inr || 28.6,
     };

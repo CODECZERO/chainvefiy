@@ -34,20 +34,29 @@ const COOKIE_OPTIONS = {
 // ─── REGISTER ───────────────────────────────────────────────────────
 export const signup = asyncHandler(async (req: Request, res: Response) => {
   const { email, password, name, whatsappNumber, role, location, category } = req.body as userSingupData;
-http://localhost:3000/marketplace
   if (!email || !password) throw new ApiError(400, 'Email and password required');
   if (role === 'SUPPLIER' && (!name || !whatsappNumber)) {
     throw new ApiError(400, 'Name and WhatsApp number are required for suppliers');
   }
 
-  // Early exit: Check if email is already taken before wasting 30s creating a Stellar wallet
-  const existingUser = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
-    select: { id: true }
+  // Early exit: Check if email or WhatsApp is already taken before wasting 30s creating a Stellar wallet
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: email.toLowerCase() },
+        whatsappNumber ? { whatsappNumber } : {}
+      ].filter(o => Object.keys(o).length > 0)
+    },
+    select: { email: true, whatsappNumber: true }
   });
   
   if (existingUser) {
-    throw new ApiError(409, 'Email already registered');
+    if (existingUser.email?.toLowerCase() === email.toLowerCase()) {
+      throw new ApiError(409, 'Email already registered');
+    }
+    if (whatsappNumber && existingUser.whatsappNumber === whatsappNumber) {
+      throw new ApiError(409, 'WhatsApp number already registered');
+    }
   }
 
   // 1. Hash password early (CPU intensive, do it before the 30s wait)
@@ -134,7 +143,11 @@ http://localhost:3000/marketplace
       }
 
       if (error.code === 'P2002') {
-        throw new ApiError(409, 'Email already registered');
+        const target = error.meta?.target || [];
+        if (target.includes('whatsappNumber')) {
+          throw new ApiError(409, 'WhatsApp number already registered');
+        }
+        throw new ApiError(409, 'Email or identifier already registered');
       }
       throw error;
     }

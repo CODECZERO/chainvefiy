@@ -7,7 +7,7 @@ import {
     TransactionBuilder,
     Networks
 } from '@stellar/stellar-sdk';
-import { server, STACK_ADMIN_SECRET } from './smartContract.handler.stellar.js';
+import { server, horizonServer, STACK_ADMIN_SECRET, adminSequenceManager } from './smartContract.handler.stellar.js';
 import logger from '../../util/logger.js';
 
 const TRUST_TOKEN_CONTRACT_ID = process.env.TRUST_TOKEN_CONTRACT_ID || '';
@@ -26,20 +26,13 @@ export class TrustTokenService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'initialize',
-                new Address(adminKeypair.publicKey()).toScVal()
-            ))
-            .setTimeout(30)
-            .build();
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('initialize', new Address(adminKeypair.publicKey()).toScVal())
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[TrustToken] Initialized: ${result.hash}`);
         return result;
@@ -55,21 +48,16 @@ export class TrustTokenService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'add_minter',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('add_minter', 
                 new Address(adminKeypair.publicKey()).toScVal(),
                 new Address(minterAddress).toScVal()
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[TrustToken] Minter added: ${minterAddress} - ${result.hash}`);
         return result;

@@ -8,7 +8,7 @@ import {
     Networks,
     xdr
 } from '@stellar/stellar-sdk';
-import { server, STACK_ADMIN_SECRET } from './smartContract.handler.stellar.js';
+import { server, horizonServer, STACK_ADMIN_SECRET, adminSequenceManager } from './smartContract.handler.stellar.js';
 import logger from '../../util/logger.js';
 
 const SUPPLIER_REGISTRY_CONTRACT_ID = process.env.SUPPLIER_REGISTRY_CONTRACT_ID || '';
@@ -27,20 +27,13 @@ export class SupplierRegistryService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'initialize',
-                new Address(adminKeypair.publicKey()).toScVal()
-            ))
-            .setTimeout(30)
-            .build();
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('initialize', new Address(adminKeypair.publicKey()).toScVal())
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[SupplierRegistry] Initialized: ${result.hash}`);
         return result;
@@ -65,24 +58,19 @@ export class SupplierRegistryService {
         // Convert rank string to Symbol
         const rankSymbol = xdr.ScVal.scvSymbol(rank);
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'register',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('register',
                 new Address(ownerKeypair.publicKey()).toScVal(),
                 nativeToScVal(name, { type: 'string' }),
                 nativeToScVal(category, { type: 'u32' }),
                 rankSymbol,
                 nativeToScVal(trustScore, { type: 'u32' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(ownerKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(ownerKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[SupplierRegistry] Supplier registered: ${name} - ${result.hash}`);
         return result;
@@ -98,21 +86,16 @@ export class SupplierRegistryService {
         const ownerKeypair = Keypair.fromSecret(ownerKey);
         const sourceAccount = await this.server.getAccount(ownerKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'update_trust_score',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('update_trust_score',
                 new Address(ownerKeypair.publicKey()).toScVal(),
                 nativeToScVal(newTrustScore, { type: 'u32' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(ownerKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(ownerKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[SupplierRegistry] Trust score updated: ${newTrustScore} - ${result.hash}`);
         return result;
@@ -130,22 +113,17 @@ export class SupplierRegistryService {
 
         const rankSymbol = xdr.ScVal.scvSymbol(newRank);
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'promote',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('promote',
                 new Address(adminKeypair.publicKey()).toScVal(),
                 new Address(ownerAddress).toScVal(),
                 rankSymbol
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[SupplierRegistry] Supplier promoted: ${ownerAddress} - ${result.hash}`);
         return result;
@@ -161,21 +139,16 @@ export class SupplierRegistryService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'suspend',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('suspend',
                 new Address(adminKeypair.publicKey()).toScVal(),
                 new Address(ownerAddress).toScVal()
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[SupplierRegistry] Supplier suspended: ${ownerAddress} - ${result.hash}`);
         return result;
@@ -191,21 +164,16 @@ export class SupplierRegistryService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'reinstate',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('reinstate',
                 new Address(adminKeypair.publicKey()).toScVal(),
                 new Address(ownerAddress).toScVal()
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[SupplierRegistry] Supplier reinstated: ${ownerAddress} - ${result.hash}`);
         return result;
@@ -221,22 +189,17 @@ export class SupplierRegistryService {
         const adminKeypair = Keypair.fromSecret(adminKey);
         const sourceAccount = await this.server.getAccount(adminKeypair.publicKey());
 
-        const tx = new TransactionBuilder(sourceAccount, {
-            fee: "100",
-            networkPassphrase: Networks.TESTNET
-        })
-            .addOperation(contract.call(
-                'set_category_capacity',
+        // Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction([
+            contract.call('set_category_capacity',
                 new Address(adminKeypair.publicKey()).toScVal(),
                 nativeToScVal(category, { type: 'u32' }),
                 nativeToScVal(capacity, { type: 'u32' })
-            ))
-            .setTimeout(30)
-            .build();
+            )
+        ]);
 
-        const preparedTx = await this.server.prepareTransaction(tx);
-        preparedTx.sign(adminKeypair);
-        const result = await this.server.sendTransaction(preparedTx);
+        tx.sign(adminKeypair);
+        const result = await horizonServer.submitTransaction(tx);
 
         logger.info(`[SupplierRegistry] Category capacity set: ${category} = ${capacity} - ${result.hash}`);
         return result;

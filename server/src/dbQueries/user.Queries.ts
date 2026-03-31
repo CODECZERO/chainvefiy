@@ -68,9 +68,14 @@ export const saveUserAndTokens = async (data: {
   }
 };
 
-export const loginUser = async (email: string, password: string) => {
-  const user = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
+export const loginUser = async (identifier: string, password: string) => {
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: identifier.toLowerCase() },
+        { whatsappNumber: identifier }
+      ]
+    },
     include: { supplierProfile: true }
   });
   if (!user || !user.passwordHash) throw new ApiError(401, 'Invalid email or password');

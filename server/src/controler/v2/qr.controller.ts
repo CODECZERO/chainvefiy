@@ -8,7 +8,7 @@ import { ApiResponse } from '../../util/apiResponse.util.js';
 import { ApiError } from '../../util/apiError.util.js';
 import { cacheGet, cacheSet, cacheDel, buildCacheKey } from '../../lib/redis.js';
 import { maskIp, countryCodeToName, inferScannerRole } from '../../util/qr.util.js';
-import { server, STACK_ADMIN_SECRET } from '../../services/stellar/smartContract.handler.stellar.js';
+import { server, horizonServer, STACK_ADMIN_SECRET, adminSequenceManager } from '../../services/stellar/smartContract.handler.stellar.js';
 import { Keypair, TransactionBuilder, Networks, Operation, Asset, Memo, BASE_FEE } from '@stellar/stellar-sdk';
 import logger from '../../util/logger.js';
 import type { MachineRequest } from '../../midelware/machine.midelware.js';
@@ -112,23 +112,20 @@ export const generateQR = async (req: Request, res: Response) => {
   let genesisAnchorTx: string | null = null;
   try {
     const sha256Buffer = createHash('sha256').update(token).digest();
-    const adminKeypair = Keypair.fromSecret(STACK_ADMIN_SECRET);
-    const account = await server.getAccount(adminKeypair.publicKey());
-    const tx = new TransactionBuilder(account, {
-      fee: BASE_FEE,
-      networkPassphrase: Networks.TESTNET,
-    })
-      .addOperation(Operation.payment({
-        destination: adminKeypair.publicKey(),
-        asset: Asset.native(),
-        amount: '0.0000001',
-      }))
-      .addMemo(Memo.hash(sha256Buffer))
-      .setTimeout(30)
-      .build();
+    
+    // Build and sign transaction with globally synchronized helper
+    const tx = await adminSequenceManager.buildTransaction(
+      [
+        Operation.payment({
+          destination: Keypair.fromSecret(STACK_ADMIN_SECRET).publicKey(),
+          asset: Asset.native(),
+          amount: '0.0000001',
+        })
+      ],
+      Memo.hash(sha256Buffer)
+    );
 
-    tx.sign(adminKeypair);
-    const result = await server.sendTransaction(tx);
+    const result = await horizonServer.submitTransaction(tx);
     genesisAnchorTx = result.hash;
     logger.info(`[QR] Genesis anchor tx: ${result.hash}`);
   } catch (err: any) {
@@ -410,7 +407,7 @@ export const machineScan = async (req: MachineRequest, res: Response) => {
   if (!shortCode) throw new ApiError(400, 'Could not extract shortCode from scan data');
 
   // 2. Find QR code
-  const qrCode = await prisma.qRCode.findUnique({ where: { shortCode: String(shortCode) } });
+  const qrCode = await prisma.qRCode.findFirst({ where: { shortCode: String(shortCode) } });
   if (!qrCode) throw new ApiError(404, 'QR code not found');
 
   // 3. Resolve IP geolocation
@@ -500,8 +497,8 @@ export const getJourney = async (req: Request, res: Response) => {
   const cached = await cacheGet(cacheKey);
   if (cached) return res.json(new ApiResponse(200, cached, 'Journey fetched (cached)'));
 
-  const qrCode = await prisma.qRCode.findUnique({
-    where: { shortCode: String(shortCode) },
+  const qrCode = await prisma.qRCode.findFirst({
+    where: { OR: [ { shortCode: String(shortCode) }, { orderId: String(shortCode) } ] },
     include: {
       order: {
         select: {
@@ -589,7 +586,15 @@ export const getMapData = async (req: Request, res: Response) => {
   if (cached) return res.json(new ApiResponse(200, cached, 'Map data (cached)'));
 
   const scans = await prisma.qRScan.findMany({
-    where: { qrCode: { shortCode: String(shortCode) }, resolvedLat: { not: null } },
+    where: { 
+      qrCode: { 
+        OR: [
+          { shortCode: String(shortCode) },
+          { orderId: String(shortCode) }
+        ]
+      }, 
+      resolvedLat: { not: null } 
+    },
     orderBy: { scanNumber: 'asc' },
     select: {
       scanNumber: true,
@@ -619,8 +624,8 @@ export const getMapData = async (req: Request, res: Response) => {
 export const getCertificate = async (req: Request, res: Response) => {
   const { shortCode } = req.params;
 
-  const qrCode = await prisma.qRCode.findUnique({
-    where: { shortCode: String(shortCode) },
+  const qrCode = await prisma.qRCode.findFirst({
+    where: { OR: [ { shortCode: String(shortCode) }, { orderId: String(shortCode) } ] },
     include: {
       order: {
         select: {
@@ -719,8 +724,8 @@ export const resolveQR = async (req: Request, res: Response) => {
   const cacheKey = `qr:resolve:${shortCode}`;
   let qrCode = await cacheGet<any>(cacheKey);
   if (!qrCode) {
-    qrCode = await prisma.qRCode.findUnique({
-      where: { shortCode: String(shortCode) },
+    qrCode = await prisma.qRCode.findFirst({
+      where: { OR: [ { shortCode: String(shortCode) }, { orderId: String(shortCode) } ] },
       include: {
         order: {
           select: {
@@ -800,8 +805,8 @@ export const getMachineData = async (req: Request, res: Response) => {
   const cached = await cacheGet(cacheKey);
   if (cached) return res.json(cached);
 
-  const qrCode = await prisma.qRCode.findUnique({
-    where: { shortCode: String(shortCode) },
+  const qrCode = await prisma.qRCode.findFirst({
+    where: { OR: [ { shortCode: String(shortCode) }, { orderId: String(shortCode) } ] },
     include: {
       order: {
         select: {

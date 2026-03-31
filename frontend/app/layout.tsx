@@ -7,6 +7,7 @@ import { WalletStateManager } from "@/components/wallet-state-manager"
 import { Toaster } from "@/components/ui/toaster"
 import { WalletProvider } from "@/lib/wallet-context"
 import { ThemeProvider } from "@/components/theme-provider"
+import { QueryProvider } from "@/components/providers/query-provider"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -34,12 +35,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.className} antialiased bg-background text-foreground`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <ReduxProvider>
-            <WalletProvider>
-              <WalletStateManager />
-              {children}
-              <Toaster />
-              <Analytics />
-            </WalletProvider>
+            <QueryProvider>
+              <WalletProvider>
+                <WalletStateManager />
+                {children}
+                <Toaster />
+                <Analytics />
+              </WalletProvider>
+            </QueryProvider>
           </ReduxProvider>
         </ThemeProvider>
       </body>

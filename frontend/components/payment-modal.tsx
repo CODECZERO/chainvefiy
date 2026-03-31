@@ -20,13 +20,13 @@ export function PaymentModal({
   onClose: () => void
   product: { id: string; title: string; priceInr: number; priceUsdc: number; supplier?: { stellarWallet?: string } }
   shippingDetails?: any
-  initialCurrency?: "USDC" | "XLM" | "BTC" | "ETH"
+  initialCurrency?: "USDC" | "USDT" | "XLM"
 }) {
   const { user } = useSelector((s: RootState) => s.userAuth)
   const { publicKey, signTransaction } = useWallet()
   const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
 
-  const [currency, setCurrency] = React.useState<"USDC" | "XLM" | "BTC" | "ETH">(initialCurrency)
+  const [currency, setCurrency] = React.useState<"USDC" | "USDT" | "XLM">(initialCurrency)
   const [quote, setQuote] = React.useState<any>(null)
   const [loadingQuote, setLoadingQuote] = React.useState(false)
   const [paying, setPaying] = React.useState<null | "wallet" | "upi" | "supplier_wallet">(null)
@@ -269,8 +269,8 @@ export function PaymentModal({
 
             <div className="space-y-2">
               <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Pay with</div>
-              <div className="grid grid-cols-4 gap-2">
-                {(["USDC", "XLM", "BTC", "ETH"] as const).map((c) => (
+              <div className="grid grid-cols-3 gap-2">
+                {(["USDC", "USDT", "XLM"] as const).map((c) => (
                   <button
                     key={c}
                     onClick={() => setCurrency(c)}

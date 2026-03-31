@@ -2,39 +2,43 @@ import { createHash } from 'crypto';
 import { prisma } from '../lib/prisma.js';
 import logger from '../util/logger.js';
 import { Keypair, TransactionBuilder, Networks, Operation, Asset, Memo, BASE_FEE } from '@stellar/stellar-sdk';
-import { horizonServer, STACK_ADMIN_SECRET } from '../services/stellar/smartContract.handler.stellar.js';
+import { horizonServer, STACK_ADMIN_SECRET, adminSequenceManager } from '../services/stellar/smartContract.handler.stellar.js';
+import { Account } from '@stellar/stellar-sdk';
 
 const ANCHOR_INTERVAL_MS = 60_000; // Run every 60 seconds
 const BATCH_SIZE = 10; // Anchor up to 10 scans per cycle
 
 async function anchorPendingScans() {
   try {
-    // Find scans that have an anchorReason but haven't been anchored yet
-    const pending = await prisma.qRScan.findMany({
+    // 1. Fetch pending scans with valid qrCodeId to avoid IN(NULL)
+    const pending = (await prisma.qRScan.findMany({
       where: {
         anchorReason: { not: null },
         anchoredOnChain: false,
+        qrCodeId: { not: "" }, // This is usually enough for indexed fields, but let's be extra safe
       },
       include: {
         qrCode: { select: { id: true, shortCode: true, orderId: true } },
       },
       take: BATCH_SIZE,
       orderBy: { createdAt: 'asc' },
-    });
+    })) as any[];
 
-    if (pending.length === 0) return;
+    // Extra safety filter to ensure no null qrCodes get through to the Batch/IN query
+    const validPending = pending.filter(p => p.qrCodeId && p.qrCode);
 
-    logger.info(`[Anchor] Processing ${pending.length} pending scan anchors`);
+    if (validPending.length === 0) return;
+
+    logger.info(`[Anchor] Processing ${validPending.length} valid pending scan anchors`);
 
     const adminKeypair = Keypair.fromSecret(STACK_ADMIN_SECRET);
-
-    for (const scan of pending) {
+    
+    for (const scan of validPending) {
       try {
-        // Create a deterministic hash of the scan data
         const scanPayload = JSON.stringify({
           scanId: scan.id,
-          qrShortCode: scan.qrCode?.shortCode,
-          orderId: scan.qrCode?.orderId,
+          qrShortCode: scan.qrCode.shortCode,
+          orderId: scan.qrCode.orderId,
           scanNumber: scan.scanNumber,
           scanSource: scan.scanSource,
           resolvedLat: scan.resolvedLat,
@@ -46,55 +50,42 @@ async function anchorPendingScans() {
 
         const sha256 = createHash('sha256').update(scanPayload).digest();
 
-        // Build a Stellar Horizon transaction with the hash as memo
-        const account = await horizonServer.loadAccount(adminKeypair.publicKey());
-        const tx = new TransactionBuilder(account, {
-          fee: BASE_FEE,
-          networkPassphrase: Networks.TESTNET,
-        })
-          .addOperation(
+        // 3. Build and sign transaction with globally synchronized helper
+        const tx = await adminSequenceManager.buildTransaction(
+          [
             Operation.payment({
               destination: adminKeypair.publicKey(),
               asset: Asset.native(),
               amount: '0.0000001',
             })
-          )
-          .addMemo(Memo.hash(sha256))
-          .setTimeout(30)
-          .build();
+          ],
+          Memo.hash(sha256)
+        );
 
-        tx.sign(adminKeypair);
         const result = await horizonServer.submitTransaction(tx);
         const txHash = result.hash;
 
-        // Mark the scan as anchored (only fields that exist in schema)
-        await prisma.qRScan.update({
-          where: { id: scan.id },
-          data: {
-            anchoredOnChain: true,
-            anchorTxId: txHash,
-          },
-        });
-
-        // Update QR code anchor count using the id field
-        if (scan.qrCode?.id) {
-          await prisma.qRCode.update({
+        // 4. Update scan and QR code using batch-friendly logic (individual but fast)
+        await prisma.$transaction([
+          prisma.qRScan.update({
+            where: { id: scan.id },
+            data: { anchoredOnChain: true, anchorTxId: txHash },
+          }),
+          prisma.qRCode.update({
             where: { id: scan.qrCode.id },
             data: {
               totalAnchors: { increment: 1 },
               latestAnchorTx: txHash,
             },
-          });
-        }
+          })
+        ]);
 
-        logger.info(`[Anchor] Scan #${scan.scanNumber} anchored on Stellar: tx=${txHash}`);
+        logger.info(`[Anchor] Scan #${scan.scanNumber} anchored: tx=${txHash}`);
       } catch (err: any) {
         logger.warn(`[Anchor] Failed to anchor scan ${scan.id}: ${err.message}`);
-        // Don't crash the loop — continue with next scan
       }
 
-      // Small delay between transactions to avoid rate limits
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 1000)); // Slightly reduced delay
     }
   } catch (err: any) {
     logger.error(`[Anchor] Job cycle error: ${err.message}`);

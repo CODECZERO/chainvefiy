@@ -62,6 +62,32 @@ export const getSupplierAnalytics = async (req: Request, res: Response) => {
 
   const revenueSeries = Object.entries(revenueByMonth).map(([name, total]) => ({ name, uv: total, pv: total }));
 
+  // ── Currency Distribution (New) ──
+  const currencyDist = orders.reduce((acc: Record<string, number>, order) => {
+    const curr = order.sourceCurrency || 'USDC';
+    acc[curr] = (acc[curr] || 0) + (Number(order.priceUsdc) || 0);
+    return acc;
+  }, {});
+  const currencySeries = Object.entries(currencyDist).map(([name, value]) => ({ name, value }));
+
+  // ── Daily Volume - Last 14 days (New) ──
+  const now = new Date();
+  const last14Days = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date();
+    d.setDate(now.getDate() - (13 - i));
+    return d.toISOString().split('T')[0];
+  });
+
+  const dailyVolume = last14Days.map(dateStr => {
+    if (!dateStr) return { date: '', orders: 0, revenue: 0 };
+    const dayOrders = orders.filter(o => new Date(o.createdAt).toISOString().split('T')[0] === dateStr);
+    return {
+      date: dateStr.split('-').slice(1).join('/'),
+      orders: dayOrders.length,
+      revenue: dayOrders.reduce((sum, o) => sum + Number(o.priceUsdc || 0), 0)
+    };
+  });
+
   const categoryRank = "#1 in your category";
 
   const buyerCounts = orders.reduce((acc: Record<string, number>, order) => {
@@ -74,7 +100,6 @@ export const getSupplierAnalytics = async (req: Request, res: Response) => {
   const repeatBuyerRate = totalBuyers > 0 ? ((repeatBuyers / totalBuyers) * 100).toFixed(0) : "0";
 
   // ─── Phase 4b: QR Scan Analytics ───
-  // Aggregate QRCodes for this supplier
   const qrCodes = await prisma.qRCode.findMany({
     where: { supplierId: id },
     select: {
@@ -95,7 +120,6 @@ export const getSupplierAnalytics = async (req: Request, res: Response) => {
   const machineScans = qrCodes.reduce((sum, qr) => sum + qr.machineScans, 0);
   const browserScans = qrCodes.reduce((sum, qr) => sum + qr.browserScans, 0);
 
-  // Find most scanned product
   let mostScannedProduct = { title: "None", scans: 0 };
   const productScans: Record<string, { title: string, scans: number }> = {};
   for (const qr of qrCodes) {
@@ -108,7 +132,6 @@ export const getSupplierAnalytics = async (req: Request, res: Response) => {
     }
   }
 
-  // Get top scan countries
   const scans = await prisma.qRScan.findMany({
     where: { qrCode: { supplierId: id }, ipCountry: { not: null } },
     select: { ipCountry: true }
@@ -125,7 +148,7 @@ export const getSupplierAnalytics = async (req: Request, res: Response) => {
     .map(([country]) => country);
 
   const qrAnalytics = {
-    totalScansThisMonth: totalScans, // simplified to all-time for this demo
+    totalScansThisMonth: totalScans,
     topScanCountries: topCountries,
     machineVsBrowserRatio: totalScans > 0 ? {
       machine: Number((machineScans / totalScans).toFixed(2)),
@@ -134,7 +157,7 @@ export const getSupplierAnalytics = async (req: Request, res: Response) => {
     anomalousScanCount: totalAnomalies,
     mostScannedProduct,
     averageJourneyLength: qrCodes.length > 0 ? Number((totalScans / qrCodes.length).toFixed(1)) : 0,
-    stellarAnchorsThisMonth: totalAnchors // simplified to all-time for this demo
+    stellarAnchorsThisMonth: totalAnchors
   };
 
   return res.json(new ApiResponse(200, {
@@ -142,9 +165,11 @@ export const getSupplierAnalytics = async (req: Request, res: Response) => {
       { name: 'Jan', uv: 0, pv: 0 },
       { name: 'Feb', uv: 0, pv: 0 }
     ],
+    currencyDistribution: currencySeries,
+    dailyVolume,
     repeatBuyerRate,
     categoryRank,
     topProducts: orders.slice(0, 3).map(o => ({ title: o.product.title, quantity: o.quantity })),
-    qrAnalytics // Newly added Phase 4b analytics
+    qrAnalytics
   }, 'Analytics fetched'));
 };
