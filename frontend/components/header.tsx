@@ -46,14 +46,14 @@ export function Header() {
     { href: "/marketplace", label: "Marketplace" },
     { href: "/community", label: "Community" },
     { href: "/leaderboard", label: "Leaderboard" },
+    { href: "/bounty-board", label: "Bounties" },
+    { href: "/verify", label: "Verify" },
   ]
 
   // Add role-based links
   if (isSupplier) {
     NAV.push(
-      { href: "/seller-dashboard", label: "Dashboard" },
-      { href: "/verify", label: "Verify", requiresAuth: true },
-      { href: "/bounty-board", label: "Bounties", requiresAuth: true }
+      { href: "/seller-dashboard", label: "Dashboard" }
     )
   } else if (user?.role === "BUYER") {
     NAV.push({ href: "/buyer-dashboard", label: "My Orders" })

@@ -173,7 +173,7 @@ export default function VerifyPage() {
                         <div className="flex items-start justify-between gap-4 mb-2">
                           <div>
                             <h3 className="text-2xl font-bold text-white mb-1 group-hover:text-amber-400 transition-colors">{p.title}</h3>
-                            <p className="text-slate-400 text-sm font-medium">{p.supplier.name} <span className="text-slate-600 mx-2">•</span> {p.supplier.location}</p>
+                            <p className="text-slate-400 text-sm font-medium">{p.supplier?.name || "Verified Supplier"} <span className="text-slate-600 mx-2">•</span> {p.supplier?.location || "Global"}</p>
                           </div>
                           <span className="text-blue-400 font-bold font-mono text-xl shrink-0 bg-blue-500/10 px-4 py-1.5 rounded-xl border border-blue-500/20">₹{p.priceInr.toLocaleString()}</span>
                         </div>

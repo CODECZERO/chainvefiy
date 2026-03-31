@@ -533,7 +533,7 @@ export default function SellerDashboard() {
                             <div className="flex items-start gap-4">
                               <div className="w-20 h-20 bg-[#0C0F17] rounded-3xl shadow-inner border border-white/[0.08] flex items-center justify-center shrink-0 overflow-hidden relative">
                                 {o.product?.proofMediaUrls?.[0] ? (
-                                  <Image src={getIPFSUrl(o.product.proofMediaUrls[0])} alt="" fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
+                                  <Image src={getIPFSUrl(o.product.proofMediaUrls?.[0])} alt="" fill className="object-cover transition-transform duration-700 group-hover:scale-110" />
                                 ) : (
                                   <Package className="w-8 h-8 text-slate-500" />
                                 )}

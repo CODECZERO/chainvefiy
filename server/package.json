@@ -9,7 +9,7 @@
     "build": "tsc",
     "postinstall": "prisma generate && npm run build",
     "format": "prettier --write .",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest --forceExit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",

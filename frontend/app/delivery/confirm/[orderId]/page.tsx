@@ -335,7 +335,7 @@ export default function DeliveryConfirmationPage() {
                 <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Item En Route</div>
                 <h2 className="text-3xl font-bold truncate text-white mb-2">{order.product.title}</h2>
                 {order.product.description && <p className="text-sm text-slate-400 mb-3 italic">"{order.product.description}"</p>}
-                <p className="text-slate-400 text-base mb-6">{order.product.supplier.name} <span className="mx-2 text-slate-600">•</span> {order.product.supplier.location}</p>
+                <p className="text-slate-400 text-base mb-6">{order.product.supplier?.name || "Verified Supplier"} <span className="mx-2 text-slate-600">•</span> {order.product.supplier?.location || "Global"}</p>
                 
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="bg-[#0C0F17] border border-white/[0.06] rounded-xl px-5 py-3 shadow-inner inline-flex items-center gap-2">

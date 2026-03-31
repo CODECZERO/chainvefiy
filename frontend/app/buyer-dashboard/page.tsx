@@ -294,7 +294,7 @@ export default function BuyerDashboard() {
                           {/* Product image */}
                           <div className="w-16 h-16 bg-[#1C2333] rounded-xl flex items-center justify-center shrink-0 overflow-hidden relative border border-[#1F2D40]">
                             {order.product?.proofMediaUrls?.[0]
-                              ? <Image src={getIPFSUrl(order.product.proofMediaUrls[0])} alt="" fill className="object-cover" />
+                              ? <Image src={getIPFSUrl(order.product.proofMediaUrls?.[0])} alt="" fill className="object-cover" />
                               : <Package className="w-6 h-6 text-slate-500" />}
                           </div>
                           {/* Order details */}

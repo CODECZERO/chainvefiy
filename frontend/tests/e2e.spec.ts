@@ -6,8 +6,10 @@ test.describe('Visitor Flow', () => {
         await expect(page).toHaveTitle(/Pramanik/i, { timeout: 10000 });
         await expect(page.getByText(/Pramanik/i).first()).toBeVisible({ timeout: 10000 });
 
-        // bounty-board is protected; unauth should not see the page content
+        // Navigate to bounty board and verify it is public
         await page.goto('/bounty-board', { waitUntil: 'domcontentloaded' });
-        await expect(page.getByText(/Earn rewards by improving Pramanik/i).first()).toHaveCount(0);
+        await expect(page.getByRole('heading', { name: /Bounty Board/i })).toBeVisible({ timeout: 15000 });
+        // Handle empty database case gracefully: accepts either "Available Bounties" or "No bounties found"
+        await expect(page.getByText(/(Available Bounties|No bounties found)/i).first()).toBeVisible({ timeout: 15000 });
     });
 });

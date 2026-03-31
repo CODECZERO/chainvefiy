@@ -132,7 +132,7 @@ export function ProductCard({ task, index = 0, usdcInr = 83.33 }: { task: any; i
           <div className="flex items-center gap-2 mt-1.5">
             <Award className="w-3.5 h-3.5 text-blue-400 shrink-0" />
             <span className="text-muted-foreground text-sm truncate">
-              {String(task.supplier.name || "Supplier")} {task.supplier.location ? `· ${String(task.supplier.location)}` : ""}
+              {String(task.supplier?.name || "Supplier")} {task.supplier?.location ? `· ${String(task.supplier.location)}` : ""}
             </span>
             {task.supplier?.isVerified && (
               <span className="shrink-0 flex items-center gap-1 text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2 py-0.5">
@@ -157,7 +157,7 @@ export function ProductCard({ task, index = 0, usdcInr = 83.33 }: { task: any; i
           {task.supplier?.trustScore > 0 && (
             <div className="text-right">
               <div className="text-xs text-muted-foreground">Trust</div>
-              <div className="text-sm font-bold text-emerald-400">{String(task.supplier.trustScore)}%</div>
+              <div className="text-sm font-bold text-emerald-400">{String(task.supplier?.trustScore || 0)}%</div>
             </div>
           )}
         </div>
