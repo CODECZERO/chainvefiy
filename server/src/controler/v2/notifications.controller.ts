@@ -7,11 +7,11 @@ export const getNotifications = async (req: any, res: Response) => {
   const stellarWallet = req.query.stellarWallet as string;
 
   if (!userId && stellarWallet) {
-    const user = await prisma.user.findUnique({ where: { stellarWallet } });
+    const user = await prisma.user.findUnique({ where: { stellarWallet: String(stellarWallet) } });
     if (user) userId = user.id;
   }
 
-  if (!userId) return res.status(401).json(new ApiResponse(401, null, 'Unauthorized'));
+  if (!userId) return res.json(new ApiResponse(200, [], 'No notifications for unregistered user'));
 
   const notifications = await prisma.notification.findMany({
     where: { userId },
@@ -26,11 +26,11 @@ export const markAllAsRead = async (req: any, res: Response) => {
   const { stellarWallet } = req.body;
 
   if (!userId && stellarWallet) {
-    const user = await prisma.user.findUnique({ where: { stellarWallet } });
+    const user = await prisma.user.findUnique({ where: { stellarWallet: String(stellarWallet) } });
     if (user) userId = user.id;
   }
 
-  if (!userId) return res.status(401).json(new ApiResponse(401, null, 'Unauthorized'));
+  if (!userId) return res.json(new ApiResponse(200, null, 'No notifications to mark for unregistered user'));
 
   await prisma.notification.updateMany({
     where: { userId, isRead: false },
@@ -56,7 +56,7 @@ export const getUnreadCount = async (req: any, res: Response) => {
     if (user) userId = user.id;
   }
 
-  if (!userId) return res.status(401).json(new ApiResponse(401, { count: 0 }, 'Unauthorized (fallback to 0)'));
+  if (!userId) return res.json(new ApiResponse(200, { count: 0 }, 'Success (fallback for unregistered user)'));
 
   const count = await prisma.notification.count({
     where: { userId, isRead: false },

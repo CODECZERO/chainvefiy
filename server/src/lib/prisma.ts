@@ -11,7 +11,7 @@ dns.setDefaultResultOrder('ipv4first');
 const { Pool } = pg;
 
 type PrismaClientType = PrismaClient;
-const globalForPrisma = globalThis as unknown as { 
+const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClientType;
   pgPool?: pg.Pool;
 };
@@ -28,11 +28,11 @@ if (!globalForPrisma.prisma) {
   // PgBouncer (Supabase Connection Pooler on port 6543) handles server-side connection recycling.
   // Our local pool just manages sockets to PgBouncer — these are fast, reliable, and don't get
   // killed by firewalls because PgBouncer responds immediately to keepalives.
-  const pool = new Pool({ 
+  const pool = new Pool({
     connectionString,
-    max: 15,
-    idleTimeoutMillis: 30000, 
-    connectionTimeoutMillis: 20000,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
     keepAlive: true,
     keepAliveInitialDelayMillis: 10000,
     ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
@@ -41,15 +41,15 @@ if (!globalForPrisma.prisma) {
   pool.on('error', (err) => {
     console.error('[PRISMA] Pool background error:', err.message);
   });
-  
+
   const adapter = new PrismaPg(pool);
-  
+
   globalForPrisma.prisma = new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
   globalForPrisma.pgPool = pool;
-  
+
   console.log('[PRISMA] New Prisma Client created with pg adapter (max: 15)');
 
   // Critical fix for hot-reload connection exhaustions (Zombies in Supabase)

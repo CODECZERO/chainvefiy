@@ -25,7 +25,7 @@ async function anchorPendingScans() {
     })) as any[];
 
     // Extra safety filter to ensure no null qrCodes get through to the Batch/IN query
-    const validPending = pending.filter(p => p.qrCodeId && p.qrCode);
+    const validPending = pending.filter(p => p.qrCodeId && p.qrCode && p.qrCode.id);
 
     if (validPending.length === 0) return;
 

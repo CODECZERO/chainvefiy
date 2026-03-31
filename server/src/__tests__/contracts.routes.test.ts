@@ -78,6 +78,23 @@ jest.unstable_mockModule('@stellar/stellar-sdk', () => ({
   Networks: { TESTNET: 'Test SDF Network ; September 2015' },
 }));
 
+jest.unstable_mockModule('../lib/prisma.js', () => ({
+  prisma: {
+    user: { findUnique: jest.fn() },
+    order: { findMany: jest.fn(), count: jest.fn(), aggregate: jest.fn() },
+    product: { count: jest.fn() },
+    qRScan: { findMany: jest.fn() },
+    trustTokenLedger: { aggregate: jest.fn() }
+  },
+  default: {
+    user: { findUnique: jest.fn() },
+    order: { findMany: jest.fn(), count: jest.fn(), aggregate: jest.fn() },
+    product: { count: jest.fn() },
+    qRScan: { findMany: jest.fn() },
+    trustTokenLedger: { aggregate: jest.fn() }
+  }
+}));
+
 let app: any;
 
 beforeAll(async () => {

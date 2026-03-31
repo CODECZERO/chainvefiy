@@ -131,14 +131,15 @@ export const getBuyerOrders = async (req: any, res: Response) => {
   }
 
   if (!finalBuyerId) {
-    logger.warn(`[Orders] getBuyerOrders failed: No identification found (query: buyerId=${buyerId}, wallet=${stellarWallet}, authUserId=${authUserId})`);
-    return res.status(401).json(new ApiResponse(401, null, 'Unauthorized or missing buyer identification'));
+    logger.info(`[Orders] getBuyerOrders: No user found for filters, returning empty list`);
+    return res.json(new ApiResponse(200, [], 'No orders found for this identity'));
   }
 
   const orders = await prisma.order.findMany({
     where: { buyerId: String(finalBuyerId) },
     include: {
-      product: { include: { supplier: { select: { name: true, location: true, trustScore: true } } } }
+      product: { include: { supplier: { select: { name: true, location: true, trustScore: true } } } },
+      qrCode: true
     },
     orderBy: { createdAt: 'desc' }
   });
@@ -161,7 +162,17 @@ export const getOrderStatus = async (req: any, res: Response) => {
       qrCode: {
         include: {
           scans: {
-            orderBy: { scanNumber: 'asc' }
+            orderBy: { scanNumber: 'asc' },
+            select: {
+              id: true,
+              scanNumber: true,
+              resolvedLocation: true,
+              serverTimestamp: true,
+              scanSource: true,
+              scannerRole: true,
+              anchoredOnChain: true
+            },
+            take: 50 // Limit to avoid massive payloads
           }
         }
       }

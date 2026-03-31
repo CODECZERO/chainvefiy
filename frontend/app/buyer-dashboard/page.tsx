@@ -80,9 +80,15 @@ export default function BuyerDashboard() {
         headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
       })
       const data = await response.json()
-      if (response.ok) setOrders(data.data || [])
+      if (response.ok) {
+        setOrders(data.data || [])
+      } else {
+        // If 401/404, just set empty orders to stop the spinner and show empty state
+        setOrders([])
+      }
     } catch (err) {
       console.error('[BuyerDashboard] Failed to load orders:', err)
+      setOrders([])
     } finally {
       setLoading(false)
     }
@@ -123,7 +129,7 @@ export default function BuyerDashboard() {
 
   const isDashboardReady = !authLoading && (user?.id || publicKey)
   
-  if (authLoading || (loading && isDashboardReady)) {
+  if (authLoading || (loading && isDashboardReady && orders.length === 0)) {
     return (
       <div className="min-h-screen bg-background text-foreground">
         <Header />
@@ -422,14 +428,14 @@ export default function BuyerDashboard() {
                              </div>
 
                              {/* QR Segment for active delivery */}
-                             {(o.status === "PAID" || o.status === "SHIPPED") && o.qrCodeUrl && (
+                             {(o.status === "PAID" || o.status === "SHIPPED") && o.qrCode?.qrCodeUrl && (
                                <motion.div 
                                  whileHover={{ scale: 1.01 }}
-                                 onClick={() => setSelectedQr(o.qrCodeUrl)}
+                                 onClick={() => setSelectedQr(o.qrCode.qrCodeUrl)}
                                  className="mt-6 bg-[#0C121E]/80 border border-white/[0.04] rounded-2xl p-4 flex items-center gap-6 cursor-pointer hover:border-blue-500/30 transition-all"
                                >
-                                  <div className="w-16 h-16 bg-white p-1 rounded-lg shrink-0 group-hover:scale-110 transition-transform">
-                                     <Image src={o.qrCodeUrl} alt="QR" fill className="object-contain p-1" />
+                                  <div className="w-16 h-16 bg-white p-1 rounded-lg shrink-0 group-hover:scale-110 transition-transform relative">
+                                     <Image src={o.qrCode.qrCodeUrl} alt="QR" fill className="object-contain p-1" />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                      <div className="flex justify-between items-center mb-1">

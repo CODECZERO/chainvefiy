@@ -306,6 +306,9 @@ export const slashEscrowVotes = async (req: Request, res: Response) => {
   });
   
   let slashedCount = 0;
+  if (!realVotes || realVotes.length === 0) {
+     return res.json(new ApiResponse(200, { slashedCount }, 'No votes to slash.'));
+  }
   for (const v of realVotes) {
     if (v.stakedAmount > 0) {
       await prisma.vote.update({ where: { id: v.id }, data: { stakeSlashed: true }});
