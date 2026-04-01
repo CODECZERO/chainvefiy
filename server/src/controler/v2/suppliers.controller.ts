@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { ApiResponse } from '../../util/apiResponse.util.js';
+import { ImgFormater } from '../../util/ipfs.uitl.js';
 
 export const getSupplier = async (req: Request, res: Response) => {
   const id = String((req as any).params?.id ?? req.params.id);
@@ -25,7 +26,13 @@ export const getSupplierProducts = async (req: Request, res: Response) => {
     where: { supplierId: id },
     orderBy: { createdAt: 'desc' },
   });
-  return res.json(new ApiResponse(200, products, 'Products fetched'));
+
+  const formattedProducts = await Promise.all(products.map(async (p: any) => ({
+    ...p,
+    proofMediaUrls: await Promise.all((p.proofMediaUrls || []).map((cid: string) => ImgFormater(cid)))
+  })));
+
+  return res.json(new ApiResponse(200, formattedProducts, 'Products fetched'));
 };
 
 export const registerSupplier = async (req: Request, res: Response) => {

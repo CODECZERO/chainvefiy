@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, it, expect, beforeAll } from '@jest/globals';
 import request from 'supertest';
 
@@ -60,6 +61,12 @@ jest.unstable_mockModule('@stellar/stellar-sdk', () => ({
       return { toXDR: () => 'MOCK_XDR', sign: () => undefined };
     }
   },
+}));
+
+jest.unstable_mockModule('../services/nvidia/nim.service.js', () => ({
+  generateWhatsAppReply: jest.fn().mockResolvedValue('MOCK_REPLY'),
+  improveProductDescription: jest.fn().mockImplementation((d) => Promise.resolve(d)),
+  analyzeProductForFraud: jest.fn().mockResolvedValue({ riskScore: 0, flags: [], recommendation: 'approve' }),
 }));
 
 jest.unstable_mockModule('../lib/prisma.js', () => ({

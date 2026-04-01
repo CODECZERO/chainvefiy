@@ -70,6 +70,12 @@ const prismaMock = {
     vote: { findMany: jest.fn() },
 };
 
+jest.unstable_mockModule('../services/nvidia/nim.service.js', () => ({
+  generateWhatsAppReply: jest.fn().mockResolvedValue('MOCK_REPLY'),
+  improveProductDescription: jest.fn().mockImplementation((d) => Promise.resolve(d)),
+  analyzeProductForFraud: jest.fn().mockResolvedValue({ riskScore: 0, flags: [], recommendation: 'approve' }),
+}));
+
 jest.unstable_mockModule('../lib/prisma.js', () => ({
     __esModule: true,
     default: prismaMock,

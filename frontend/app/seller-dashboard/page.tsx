@@ -520,7 +520,7 @@ export default function SellerDashboard() {
                                >
                                   <div className="relative h-48 w-full group-hover:scale-105 transition-transform duration-700 overflow-hidden">
                                      <Image 
-                                        src={getIPFSUrl(p.images?.[0] || 'ipfs://placeholder')} 
+                                        src={getIPFSUrl(p.proofMediaUrls?.[0] || 'ipfs://placeholder')} 
                                         alt={p.title} 
                                         fill 
                                         className="object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-700" 
