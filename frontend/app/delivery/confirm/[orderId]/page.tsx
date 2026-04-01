@@ -141,21 +141,26 @@ export default function DeliveryConfirmationPage() {
     }]
   }
 
-  useEffect(() => {
+  const fetchOrderData = async () => {
     if (!effectiveWallet) return
+    try {
+      const res = await fetch(`${api}/delivery/${params.orderId}/delivery-view?wallet=${effectiveWallet}`)
+      const data = await res.json()
+      if (data.success) {
+        setOrder(data.data.order)
+        setWalletMismatch(false)
+      } else if (data.message?.includes('Wallet does not match')) {
+        setWalletMismatch(true)
+      }
+    } catch (e) {
+      console.error('Error fetching order', e)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    fetch(`${api}/delivery/${params.orderId}/delivery-view?wallet=${effectiveWallet}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          setOrder(data.data.order)
-          setWalletMismatch(false)
-        } else if (data.message?.includes('Wallet does not match')) {
-          setWalletMismatch(true)
-        }
-      })
-      .catch((e) => console.error('Error fetching order', e))
-      .finally(() => setLoading(false))
+  useEffect(() => {
+    fetchOrderData()
   }, [effectiveWallet, params.orderId])
 
   useEffect(() => {
@@ -206,6 +211,10 @@ export default function DeliveryConfirmationPage() {
           buyerReview: data.data.buyerReview,
           releaseTxId: data.data.releaseTxId,
         }))
+        setConfirmed(true)
+      } else if (res.status === 409 || data.message?.includes('already confirmed')) {
+        // If already confirmed, just refresh to show the inspection phase
+        await fetchOrderData()
         setConfirmed(true)
       } else {
         console.error('Handshake failed:', data.message)
