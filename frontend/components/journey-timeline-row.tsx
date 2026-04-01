@@ -3,7 +3,7 @@ import { ExternalLink } from 'lucide-react'
 
 export function JourneyTimelineRow({ scan, isLast }: { scan: any; isLast: boolean }) {
   const isMachine = scan.scanSource === 'MACHINE'
-  const date = new Date(scan.serverTimestamp)
+  const date = scan.serverTimestamp ? new Date(scan.serverTimestamp) : new Date(0)
 
   return (
     <div className="flex gap-3">

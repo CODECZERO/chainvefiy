@@ -52,7 +52,7 @@ export const getUnreadCount = async (req: any, res: Response) => {
   const stellarWallet = req.query.stellarWallet as string;
 
   if (!userId && stellarWallet) {
-    const user = await prisma.user.findUnique({ where: { stellarWallet } });
+    const user = await prisma.user.findUnique({ where: { stellarWallet: String(stellarWallet) } });
     if (user) userId = user.id;
   }
 

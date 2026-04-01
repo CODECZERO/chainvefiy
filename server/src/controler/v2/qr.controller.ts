@@ -14,16 +14,55 @@ import logger from '../../util/logger.js';
 import type { MachineRequest } from '../../midelware/machine.midelware.js';
 import { detectScanAnomalies } from '../../util/qrAnomaly.util.js';
 
-// ─── Helper: resolve IP geolocation with Redis cache ────────────────────────
+// ─── Helper: resolve IP geolocation with Redis cache & remote fallback ────────
 async function resolveGeo(ip: string) {
   const geoKey = `geo:${ip}`;
   let geo = await cacheGet<any>(geoKey);
   if (!geo) {
-    const result = geoip.lookup(ip);
-    geo = result
-      ? { country: result.country, city: result.city, region: result.region,
-          lat: result.ll[0], lng: result.ll[1], isp: '' }
-      : { country: null, city: null, region: null, lat: null, lng: null, isp: '' };
+    // 1. Try Local GeoIP (Fastest)
+    const local = geoip.lookup(ip);
+    
+    // 2. Try Remote IP-API Fallback (More accurate for mobile/CGNAT)
+    // Only call if local DB fails or returns null coordinates
+    if (!local || !local.ll) {
+      try {
+        const resp = await fetch(`http://ip-api.com/json/${ip}?fields=status,countryCode,regionName,city,lat,lon,isp`, { 
+          signal: AbortSignal.timeout(2500) 
+        });
+        const remote: any = await resp.json();
+        if (remote && remote.status === 'success') {
+          geo = { 
+            country: remote.countryCode, 
+            city: remote.city, 
+            region: remote.regionName,
+            lat: remote.lat, 
+            lng: remote.lon, 
+            isp: remote.isp 
+          };
+          logger.info(`[QR] Resolved via IP-API: ${ip} -> ${geo.city}, ${geo.country}`);
+        }
+      } catch (err: any) {
+        logger.warn(`[QR] Remote GeoIP fallback failed for ${ip}: ${err.message}`);
+      }
+    }
+
+    // 3. Last Resort: Use local if remote failed (even if coarse)
+    if (!geo && local) {
+      geo = { 
+        country: local.country, 
+        city: local.city, 
+        region: local.region,
+        lat: local.ll[0], 
+        lng: local.ll[1], 
+        isp: '' 
+      };
+    }
+
+    // 4. Final Fallback (Unknown)
+    if (!geo) {
+      geo = { country: null, city: null, region: null, lat: null, lng: null, isp: '' };
+    }
+    
     await cacheSet(geoKey, geo, 3600);
   }
   return geo;
@@ -32,17 +71,33 @@ async function resolveGeo(ip: string) {
 // ─── Helper: reverse geocode coordinates ────────────────────────────────────
 async function reverseGeocode(lat: number | null, lng: number | null, fallback: string | null): Promise<string | null> {
   if (!lat || !lng) return fallback;
-  const coordKey = `revgeo:${lat.toFixed(3)}:${lng.toFixed(3)}`;
+  const coordKey = `revgeo:${lat.toFixed(4)}:${lng.toFixed(4)}`;
   let cached = await cacheGet<string | null>(coordKey);
   if (cached !== null && cached !== undefined) return cached;
+  
   try {
     const resp = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-      { headers: { 'User-Agent': 'Pramanik-Marketplace/1.0' }, signal: AbortSignal.timeout(3000) }
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+      { 
+        headers: { 'User-Agent': 'Pramanik-Real-Time-Sourcing/2.0' }, 
+        signal: AbortSignal.timeout(3000) 
+      }
     );
     const json = await resp.json();
-    cached = json.display_name?.split(',').slice(0, 4).join(',').trim() || null;
-  } catch { cached = null; }
+    if (json.display_name) {
+      // Prioritize city/suburb for cleaner supply chain logs
+      const addr = json.address;
+      const primary = addr.city || addr.town || addr.village || addr.suburb || addr.neighbourhood;
+      const secondary = addr.state || addr.region;
+      const country = addr.country;
+      cached = primary ? `${primary}, ${secondary}, ${country}` : json.display_name.split(',').slice(0, 4).join(',').trim();
+    } else {
+      cached = null;
+    }
+  } catch { 
+    cached = null; 
+  }
+  
   await cacheSet(coordKey, cached, 86400);
   return cached || fallback;
 }
@@ -194,8 +249,18 @@ export const browserScan = async (req: Request, res: Response) => {
 
   // 2. Resolve IP geolocation
   let ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || '';
-  if (ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
-    ip = '49.36.0.0'; // Example IP for testing (Delhi, India)
+  
+  // Enhancement: Dynamic IP pool for local development to simulate real-world distribution
+  if (process.env.NODE_ENV === 'development' || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+    const testIps = [
+      '49.36.0.0',   // Delhi, IN
+      '103.21.160.0',// Mumbai, IN
+      '117.200.0.0', // Bangalore, IN
+      '157.32.0.0',  // Chennai, IN
+      '27.56.0.0'    // Kolkata, IN
+    ];
+    // Rotate through test IPs based on current minute to simulate distribution
+    ip = testIps[new Date().getMinutes() % testIps.length] || '49.36.0.0';
   }
   const geo = await resolveGeo(ip);
 
@@ -268,6 +333,8 @@ export const browserScan = async (req: Request, res: Response) => {
       viewType: body.viewType ?? 'default',
     },
   });
+  
+  logger.info(`[QR] Scan #${scanNumber} created: IP=${ip} Location=${resolvedLocation || 'Unknown'} Source=${coordinateSource}`);
 
   // 10. Update QRCode summary
   const isNewCountry = geo.country && !qrCode.countriesReached.includes(geo.country);

@@ -53,12 +53,6 @@ export default function BuyerDashboard() {
   const router = useRouter()
   const { isAuthenticated, user, isLoading: authLoading } = useSelector((s: RootState) => s.userAuth)
   
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/')
-    }
-  }, [isAuthenticated, authLoading, router])
-
   const { publicKey } = useWallet()
   const [active, setActive] = useState("orders")
   const [orders, setOrders] = useState<any[]>([])
@@ -66,6 +60,12 @@ export default function BuyerDashboard() {
   const [copied, setCopied] = useState(false)
   const [selectedQr, setSelectedQr] = useState<string | null>(null)
   const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated && !publicKey) {
+      router.push('/')
+    }
+  }, [isAuthenticated, authLoading, router, publicKey])
 
   useEffect(() => { loadOrders() }, [user?.id, publicKey])
 
@@ -106,9 +106,15 @@ export default function BuyerDashboard() {
   const totalSpent = orders.reduce((s, o) => s + Number(o.priceUsdc || 0), 0)
   
   const spendingData = orders
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    .sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return ta - tb;
+    })
     .reduce((acc: any[], order) => {
-      const date = new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      const date = order.createdAt 
+        ? new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        : 'N/A'
       const last = acc[acc.length - 1]
       const total = (last?.total || 0) + Number(order.priceUsdc || 0)
       acc.push({ date, amount: Number(order.priceUsdc || 0), total })

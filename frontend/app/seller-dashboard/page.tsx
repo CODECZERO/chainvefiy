@@ -895,7 +895,7 @@ export default function SellerDashboard() {
                                   </blockquote>
                                   <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-slate-600">
                                      <div className="flex items-center gap-2">BY <span className="text-slate-400">{b.issuer?.email}</span></div>
-                                     <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" /> {new Date(b.createdAt).toLocaleDateString()}</div>
+                                     <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" /> {b.createdAt ? new Date(b.createdAt).toLocaleDateString() : 'N/A'}</div>
                                   </div>
                                </div>
                                <div className="shrink-0 flex flex-col items-center border-l lg:border-l-0 lg:border-t border-white/[0.04] pt-8 lg:pt-0 pl-0 lg:pl-10">

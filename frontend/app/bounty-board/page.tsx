@@ -133,7 +133,7 @@ export default function BountyBoardPage() {
                           <Package className="w-3 h-3 text-amber-500/70" /> {String(b.product?.category || "General")}
                         </span>
                         <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">
-                          <Clock className="w-3 h-3 text-amber-500/70" /> {new Date(b.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          <Clock className="w-3 h-3 text-amber-500/70" /> {b.createdAt ? new Date(b.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                         </span>
                         {b.issuer?.email && (
                           <span className="flex items-center gap-1.5 bg-background/50 px-2 py-1 rounded-md border border-border/50">

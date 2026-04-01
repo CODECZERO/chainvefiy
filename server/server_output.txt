@@ -1,0 +1,33 @@
+
+> server@1.0.0 dev
+> nodemon --exec tsx ./src/index.ts
+
+[33m[nodemon] 3.1.14[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: ts,json[39m
+[32m[nodemon] starting `tsx ./src/index.ts`[39m
+[dotenv@17.3.1] injecting env (42) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[PRISMA] Initializing client adapter...
+[PRISMA] DATABASE_URL present: true
+[PRISMA] New Prisma Client created with pg adapter (max: 15)
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+--- STARTING PRAMANIK SERVER ---
+[2026-04-01 07:17:24] [32minfo[39m: PostgreSQL connected via Prisma {"service":"aidbridge-server"}
+[2026-04-01 07:17:24] [32minfo[39m: Pramanik server running on port 8000 {"service":"aidbridge-server"}
+[2026-04-01 07:17:24] [32minfo[39m: Environment: development {"service":"aidbridge-server"}
+[2026-04-01 07:17:24] [32minfo[39m: WhatsApp webhook: POST /api/whatsapp/webhook {"service":"aidbridge-server"}
+[2026-04-01 07:17:24] [32minfo[39m: [Anchor] Starting blockchain anchor job (interval: 60s) {"service":"aidbridge-server"}
+[2026-04-01 07:17:24] [32minfo[39m: [DeliveryJob] Auto-complete job started {"service":"aidbridge-server"}
+prisma:query SELECT "public"."qr_scans"."id", "public"."qr_scans"."qrCodeId", "public"."qr_scans"."scanSource"::text, "public"."qr_scans"."machineScannerIdRef", "public"."qr_scans"."scanNumber", "public"."qr_scans"."clientTimestamp", "public"."qr_scans"."serverTimestamp", "public"."qr_scans"."userAgent", "public"."qr_scans"."deviceType", "public"."qr_scans"."os", "public"."qr_scans"."browser", "public"."qr_scans"."screenResolution", "public"."qr_scans"."language", "public"."qr_scans"."timezone", "public"."qr_scans"."connectionType", "public"."qr_scans"."referrer", "public"."qr_scans"."isOnline", "public"."qr_scans"."gpsLat", "public"."qr_scans"."gpsLng", "public"."qr_scans"."gpsAccuracy", "public"."qr_scans"."gpsAltitude", "public"."qr_scans"."locationPermission", "public"."qr_scans"."machineDeviceId", "public"."qr_scans"."machineModel", "public"."qr_scans"."machineFirmware", "public"."qr_scans"."rawScanData", "public"."qr_scans"."machineEventType", "public"."qr_scans"."ipAddress", "public"."qr_scans"."ipCountry", "public"."qr_scans"."ipCountryName", "public"."qr_scans"."ipCity", "public"."qr_scans"."ipRegion", "public"."qr_scans"."ipIsp", "public"."qr_scans"."ipIsProxy", "public"."qr_scans"."ipLat", "public"."qr_scans"."ipLng", "public"."qr_scans"."resolvedLat", "public"."qr_scans"."resolvedLng", "public"."qr_scans"."resolvedLocation", "public"."qr_scans"."coordinateSource", "public"."qr_scans"."scannerRole", "public"."qr_scans"."walletConnected", "public"."qr_scans"."walletAddress", "public"."qr_scans"."anchoredOnChain", "public"."qr_scans"."anchorTxId", "public"."qr_scans"."anchorReason", "public"."qr_scans"."anomalyScore", "public"."qr_scans"."anomalyReasons", "public"."qr_scans"."scanToken", "public"."qr_scans"."scanTokenUsed", "public"."qr_scans"."viewType", "public"."qr_scans"."createdAt" FROM "public"."qr_scans" WHERE "public"."qr_scans"."anchoredOnChain" = $1 ORDER BY "public"."qr_scans"."createdAt" ASC LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."qr_codes"."id", "public"."qr_codes"."orderId", "public"."qr_codes"."productId", "public"."qr_codes"."supplierId", "public"."qr_codes"."token", "public"."qr_codes"."shortCode", "public"."qr_codes"."purpose"::text, "public"."qr_codes"."totalScans", "public"."qr_codes"."browserScans", "public"."qr_codes"."machineScans", "public"."qr_codes"."uniqueDevices", "public"."qr_codes"."countriesReached", "public"."qr_codes"."firstScannedAt", "public"."qr_codes"."lastScannedAt", "public"."qr_codes"."lastScannedCity", "public"."qr_codes"."lastScannedCountry", "public"."qr_codes"."genesisAnchorTx", "public"."qr_codes"."latestAnchorTx", "public"."qr_codes"."totalAnchors", "public"."qr_codes"."productGTIN", "public"."qr_codes"."serialNumber", "public"."qr_codes"."gs1DigitalLink", "public"."qr_codes"."expiresAt", "public"."qr_codes"."isExpired", "public"."qr_codes"."anomalyCount", "public"."qr_codes"."lastAnomalyAt", "public"."qr_codes"."createdAt", "public"."qr_codes"."updatedAt" FROM "public"."qr_codes" WHERE "public"."qr_codes"."id" IN (NULL) OFFSET $1
+
+[PRISMA] Received SIGTERM. Closing pg.Pool to free Supabase connections...
+[2026-04-01 07:17:32] [32minfo[39m: SIGTERM received, shutting down gracefully {"service":"aidbridge-server"}
+[PRISMA] Pool drained and closed.

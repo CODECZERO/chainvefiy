@@ -77,7 +77,7 @@ function generateTestToken(payload: object = {}): string {
     );
 }
 
-describe.skip(!HAS_DATABASE_URL)('Health Check', () => {
+describe('Health Check', () => {
     it('GET /health → 200 with success=true', async () => {
         const res = await request(app).get('/health');
         expect(res.status).toBe(200);
@@ -86,7 +86,7 @@ describe.skip(!HAS_DATABASE_URL)('Health Check', () => {
     });
 });
 
-describe.skip(!HAS_DATABASE_URL)('User API', () => {
+describe('User API', () => {
     it('POST /api/user/signup → creates supplier in PostgreSQL', async () => {
         const res = await request(app).post('/api/user/signup').send({
             email: 'supplier_new@test.com',
@@ -110,7 +110,7 @@ describe.skip(!HAS_DATABASE_URL)('User API', () => {
     });
 });
 
-describe.skip(!HAS_DATABASE_URL)('Product API', () => {
+describe('Product API', () => {
     let supplierUser: any;
     let supplier: any;
 
@@ -197,7 +197,7 @@ describe.skip(!HAS_DATABASE_URL)('Product API', () => {
     });
 });
 
-describe.skip(!HAS_DATABASE_URL)('Stats API', () => {
+describe('Stats API', () => {
     it('GET /api/stats → returns counts from PostgreSQL', async () => {
         const res = await request(app).get('/api/stats');
         expect(res.status).toBe(200);
@@ -207,7 +207,7 @@ describe.skip(!HAS_DATABASE_URL)('Stats API', () => {
     });
 });
 
-describe.skip(!HAS_DATABASE_URL)('Community Queue', () => {
+describe('Community Queue', () => {
      it('GET /api/community/queue → returns pending products', async () => {
          const res = await request(app).get('/api/community/queue');
          expect(res.status).toBe(200);

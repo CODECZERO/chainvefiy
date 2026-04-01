@@ -411,7 +411,7 @@ export default function ProductPage() {
                         <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
                           <h4 className="text-lg font-bold text-white">{String(s.stageName || "Update")}</h4>
                           <span className="text-xs text-slate-500 font-mono bg-background px-3 py-1.5 rounded-lg border border-border">
-                            {new Date(s.createdAt).toLocaleDateString()}
+                            {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : 'N/A'}
                           </span>
                         </div>
                         
